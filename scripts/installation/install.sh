@@ -1,13 +1,22 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-readonly SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
-readonly PROJECT_DIR="$(cd -- "$SCRIPT_DIR/../.." && pwd -P)"
+SCRIPT_SOURCE="${BASH_SOURCE[0]:-}"
+SCRIPT_DIR=""
+PROJECT_DIR=""
+if [[ -n "$SCRIPT_SOURCE" && -f "$SCRIPT_SOURCE" ]]; then
+  SCRIPT_DIR="$(cd -- "$(dirname -- "$SCRIPT_SOURCE")" && pwd -P)"
+  candidate_project_dir="$(cd -- "$SCRIPT_DIR/../.." && pwd -P)"
+  if [[ -f "$candidate_project_dir/shell.qml" && -d "$candidate_project_dir/configs" ]]; then
+    PROJECT_DIR="$candidate_project_dir"
+  fi
+fi
+readonly SCRIPT_DIR PROJECT_DIR
 readonly CONFIG_DIR="$HOME/.cache/wisp-desktop"
 readonly USER_PROJECT_DIR="$HOME/.config/quickshell/wisp-desktop"
 DEFAULT_REPO_URL="https://github.com/2K24CSE5/wisp-desktop.git"
 REPOSITORY_URL="$DEFAULT_REPO_URL"
-if command -v git >/dev/null 2>&1 &&
+if [[ -n "$PROJECT_DIR" ]] && command -v git >/dev/null 2>&1 &&
   git -C "$PROJECT_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   detected_origin="$(git -C "$PROJECT_DIR" config --get remote.origin.url || true)"
   if [[ "$detected_origin" =~ ^git@github\.com:(.*)$ ]]; then
@@ -74,7 +83,7 @@ print_banner() {
     "│        ${C_CYAN}╚███╔███╔╝██║███████║██║${C_BLUE}               │" \
     "│        ${C_CYAN} ╚══╝╚══╝ ╚═╝╚══════╝╚═╝${C_BLUE}               │" \
     "│                                               │" \
-    "│             ${C_CYAN}Wayland Desktop${C_BLUE}                    │" \
+    "│             ${C_CYAN}Wayland Desktop${C_BLUE}                      │" \
     "│                                               │" \
     "╰───────────────────────────────────────────────╯${C_RESET}"
   echo
