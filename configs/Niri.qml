@@ -18,6 +18,10 @@ Singleton {
 spawn-sh-at-startup "quickshell -p ~/.config/quickshell/wisp-desktop"
 prefer-no-csd
 
+binds {
+  Mod+D { spawn-sh "quickshell -c wisp-desktop ipc call launcher toggle"; }
+}
+
 hotkey-overlay {
   skip-at-startup
 }

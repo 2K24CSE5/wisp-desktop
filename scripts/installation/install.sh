@@ -479,6 +479,10 @@ setup_niri_configuration() {
 spawn-sh-at-startup "quickshell -p ~/.config/quickshell/wisp-desktop"
 prefer-no-csd
 
+binds {
+  Mod+D { spawn-sh "quickshell -c wisp-desktop ipc call launcher toggle"; }
+}
+
 hotkey-overlay {
   skip-at-startup
 }
@@ -517,6 +521,16 @@ layout {
 }
 EOF
     log_ok "Created $wisp_config."
+  fi
+
+  if ! grep -Fq 'quickshell ipc call launcher toggle' "$wisp_config"; then
+    cat >> "$wisp_config" <<'EOF'
+
+binds {
+  Mod+D { spawn-sh "quickshell ipc call launcher toggle"; }
+}
+EOF
+    log_ok "Added the Super+D Wisp Desktop launcher binding."
   fi
 
   if [[ ! -f "$niri_config" ]]; then
