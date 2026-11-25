@@ -82,35 +82,105 @@ Scope {
           }
           spacing: Math.round(22 * greeterWindow.uiScale)
 
-          // Hero Clock & Date Pill
+          // Material 3 Expressive Hero Clock & Date Pill
           ColumnLayout {
+            id: clockSection
             Layout.fillWidth: true
             Layout.alignment: Qt.AlignHCenter
-            spacing: Math.round(6 * greeterWindow.uiScale)
+            spacing: Math.round(10 * greeterWindow.uiScale)
 
-            Text {
-              Layout.alignment: Qt.AlignHCenter
-              textFormat: Text.StyledText
-              text: {
-                const raw = GreeterService.currentTime || "";
-                const colonIdx = raw.indexOf(":");
-                if (colonIdx === -1)
-                  return raw;
-                const left = raw.slice(0, colonIdx + 1);
-                const right = raw.slice(colonIdx + 1);
-                return `${left}<font color="${Color.primary}">${right}</font>`;
-              }
-              font.family: Config.textFont
-              font.pixelSize: Math.round(104 * greeterWindow.uiScale)
-              font.weight: Font.ExtraBold
-              font.letterSpacing: -2 * greeterWindow.uiScale
-              color: Color.text
+            readonly property var clockParts: {
+              const raw = GreeterService.currentTime || "00:00";
+              const idx = raw.indexOf(":");
+              if (idx === -1)
+                return {
+                  hours: raw,
+                  minutes: ""
+                };
+              return {
+                hours: raw.slice(0, idx),
+                minutes: raw.slice(idx + 1)
+              };
             }
 
+            RowLayout {
+              id: expressiveClockRow
+              Layout.alignment: Qt.AlignHCenter
+              spacing: Math.round(8 * greeterWindow.uiScale)
+
+              readonly property int digitBoxHeight: Math.round((106 * greeterWindow.uiScale) / 2) * 2
+              readonly property int digitBoxWidth: Math.round((122 * greeterWindow.uiScale) / 2) * 2
+
+              // Hours Container: Expressive Rounded Squircle
+              Rectangle {
+                Layout.preferredWidth: expressiveClockRow.digitBoxWidth
+                Layout.preferredHeight: expressiveClockRow.digitBoxHeight
+                radius: Math.round(28 * greeterWindow.uiScale)
+                color: Color.surface
+                scale: hourMouse.containsMouse ? 1.03 : 1.0
+
+                Behavior on scale {
+                  NumberAnimation {
+                    duration: 220
+                    easing.type: Easing.OutBack
+                  }
+                }
+
+                Text {
+                  anchors.centerIn: parent
+                  text: clockSection.clockParts.hours
+                  font.family: Config.textFont
+                  font.pixelSize: Math.round(68 * greeterWindow.uiScale)
+                  font.weight: Font.Black
+                  font.letterSpacing: -3 * greeterWindow.uiScale
+                  color: Color.text
+                }
+
+                MouseArea {
+                  id: hourMouse
+                  anchors.fill: parent
+                  hoverEnabled: true
+                }
+              }
+
+              // Minutes Container: Expressive Full Pill on Primary Tone
+              Rectangle {
+                Layout.preferredWidth: expressiveClockRow.digitBoxWidth
+                Layout.preferredHeight: expressiveClockRow.digitBoxHeight
+                radius: Math.round(28 * greeterWindow.uiScale)
+                color: Color.surface
+                scale: minMouse.containsMouse ? 1.03 : 1.0
+
+                Behavior on scale {
+                  NumberAnimation {
+                    duration: 220
+                    easing.type: Easing.OutBack
+                  }
+                }
+
+                Text {
+                  anchors.centerIn: parent
+                  text: clockSection.clockParts.minutes
+                  font.family: Config.textFont
+                  font.pixelSize: Math.round(68 * greeterWindow.uiScale)
+                  font.weight: Font.Black
+                  font.letterSpacing: -3 * greeterWindow.uiScale
+                  color: Color.text
+                }
+
+                MouseArea {
+                  id: minMouse
+                  anchors.fill: parent
+                  hoverEnabled: true
+                }
+              }
+            }
+
+            // Date Pill
             Rectangle {
               Layout.alignment: Qt.AlignHCenter
               implicitWidth: Math.min(contentCol.width * 0.85, dateLabel.implicitWidth + Math.round(34 * greeterWindow.uiScale))
-              height: Math.round(48 * greeterWindow.uiScale)
+              height: Math.round(42 * greeterWindow.uiScale)
               radius: height / 2
               color: Color.surface
 
@@ -122,7 +192,7 @@ Scope {
                 elide: Text.ElideRight
                 text: GreeterService.currentDate
                 font.family: Config.textFont
-                font.pixelSize: Math.max(14, Math.round(15 * greeterWindow.uiScale))
+                font.pixelSize: Math.max(13, Math.round(14 * greeterWindow.uiScale))
                 font.weight: Font.Medium
                 font.letterSpacing: 0.4
                 color: Color.text
