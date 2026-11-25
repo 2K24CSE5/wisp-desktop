@@ -11,12 +11,27 @@ Scope {
 
   Variants {
     model: Quickshell.screens
-    delegate: PanelWindow {
+
+    PanelWindow {
       id: greeterWindow
       required property var modelData
       screen: modelData
+      color: "transparent"
 
-      color: Color.background
+      readonly property real uiScale: Math.max(0.72, Math.min(1.35, Math.min(width / 1440, height / 960)))
+      readonly property real screenMargin: Math.max(20, Math.round(28 * uiScale))
+
+      function moveSelectedUser(offset: int): void {
+        const users = GreeterService.availableUsers;
+        if (users.length < 2 || GreeterService.isAuthenticating)
+          return;
+
+        const index = (GreeterService.selectedUserIndex + offset + users.length) % users.length;
+        GreeterService.selectUser(users[index].username);
+        passInput.clear();
+        passInput.forceInputFocus();
+      }
+
       anchors {
         top: true
         bottom: true
@@ -25,362 +40,337 @@ Scope {
       }
 
       WlrLayershell.layer: WlrLayer.Overlay
-      WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
-      WlrLayershell.namespace: "greetd-greeter"
+      WlrLayershell.keyboardFocus: modelData === Quickshell.screens[0] ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
+      WlrLayershell.namespace: "wisp-greeter"
 
-      // Wallpaper Background
       CrossfadeImage {
         anchors.fill: parent
         source: WallpaperService.currentWallpaper
-        opacity: 0.4
+        opacity: 1
       }
 
-      // Top Bar: Session Chooser
-      RowLayout {
-        z: 1
-        anchors {
-          top: parent.top
-          right: parent.right
-          margins: 24
+      // Centered Login Card (Clock, Avatar, Username, Password)
+      Rectangle {
+        id: loginCard
+        anchors.centerIn: parent
+
+        readonly property real marginX: Math.max(20, parent.width * 0.04)
+        readonly property real marginY: Math.max(84, parent.height * 0.10)
+        readonly property real cardPadding: Math.round(28 * greeterWindow.uiScale)
+
+        width: Math.min(parent.width - marginX * 2, Math.round(520 * greeterWindow.uiScale))
+        height: Math.min(parent.height - marginY * 2, contentCol.implicitHeight + cardPadding * 2)
+        radius: Math.round(32 * greeterWindow.uiScale)
+        color: Color.background
+        clip: true
+
+        Behavior on height {
+          NumberAnimation {
+            duration: 180
+            easing.type: Easing.OutCubic
+          }
         }
-        spacing: 8
 
-        Text {
-          text: "Session:"
-          font.family: Config.textFont
-          font.pixelSize: 13
-          color: Color.muted
-        }
+        ColumnLayout {
+          id: contentCol
+          anchors {
+            left: parent.left
+            right: parent.right
+            verticalCenter: parent.verticalCenter
+            leftMargin: loginCard.cardPadding
+            rightMargin: loginCard.cardPadding
+          }
+          spacing: Math.round(22 * greeterWindow.uiScale)
 
-        Rectangle {
-          id: sessionBtn
-          implicitHeight: 34
-          implicitWidth: sessionRow.implicitWidth + 28
-          radius: 17
-          color: sessionMouse.containsMouse ? Color.overlay : Color.surface
-          border.width: 1
-          border.color: Color.subtle
-          opacity: (!GreeterService.isLoadingSessions && GreeterService.availableSessions.length > 0) ? 1.0 : 0.5
-
-          RowLayout {
-            id: sessionRow
-            anchors.centerIn: parent
-            spacing: 6
+          // Hero Clock & Date Pill
+          ColumnLayout {
+            Layout.fillWidth: true
+            Layout.alignment: Qt.AlignHCenter
+            spacing: Math.round(6 * greeterWindow.uiScale)
 
             Text {
-              text: "desktop_windows"
-              font.family: Config.iconFont
-              font.pixelSize: 16
-              color: Color.primary
-            }
-
-            Text {
-              text: GreeterService.isLoadingSessions ? "Loading sessions..." : (GreeterService.selectedSession ? GreeterService.selectedSession.name : "No sessions found")
+              Layout.alignment: Qt.AlignHCenter
+              textFormat: Text.StyledText
+              text: {
+                const raw = GreeterService.currentTime || "";
+                const colonIdx = raw.indexOf(":");
+                if (colonIdx === -1)
+                  return raw;
+                const left = raw.slice(0, colonIdx + 1);
+                const right = raw.slice(colonIdx + 1);
+                return `${left}<font color="${Color.primary}">${right}</font>`;
+              }
               font.family: Config.textFont
-              font.pixelSize: 13
-              font.weight: Font.DemiBold
+              font.pixelSize: Math.round(104 * greeterWindow.uiScale)
+              font.weight: Font.ExtraBold
+              font.letterSpacing: -2 * greeterWindow.uiScale
               color: Color.text
             }
-          }
 
-          MouseArea {
-            id: sessionMouse
-            anchors.fill: parent
-            hoverEnabled: true
-            enabled: !GreeterService.isLoadingSessions && GreeterService.availableSessions.length > 0
-            cursorShape: Qt.PointingHandCursor
-            onClicked: {
-              GreeterService.selectSession((GreeterService.selectedSessionIndex + 1) % GreeterService.availableSessions.length);
-            }
-          }
-        }
-      }
-
-      // Center Panel: Clock & Credentials
-      ColumnLayout {
-        id: centerPanel
-        z: 1
-        anchors.centerIn: parent
-        width: 320
-        spacing: 20
-
-        // Clock
-        ColumnLayout {
-          Layout.alignment: Qt.AlignHCenter
-          spacing: 2
-
-          Text {
-            text: GreeterService.currentTime
-            font.family: Config.textFont
-            font.pixelSize: 56
-            font.bold: true
-            color: Color.text
-            Layout.alignment: Qt.AlignHCenter
-          }
-
-          Text {
-            text: GreeterService.currentDate
-            font.family: Config.textFont
-            font.pixelSize: 14
-            color: Color.muted
-            Layout.alignment: Qt.AlignHCenter
-          }
-        }
-
-        Item {
-          Layout.preferredHeight: 12
-        }
-
-        // Avatar Icon Frame
-        Rectangle {
-          Layout.alignment: Qt.AlignHCenter
-          width: 72
-          height: 72
-          radius: width / 2
-          color: Color.surface
-          border.color: Color.overlay
-          border.width: 1
-
-          Text {
-            anchors.centerIn: parent
-            text: "person"
-            font.family: Config.iconFont
-            font.pixelSize: 36
-            color: Color.primary
-          }
-        }
-
-        // Inputs & Login Button
-        ColumnLayout {
-          Layout.fillWidth: true
-          spacing: 10
-
-          // Username Input
-          Rectangle {
-            Layout.fillWidth: true
-            height: 42
-            radius: 21
-            color: Color.surface
-            border.width: userInput.activeFocus ? 2 : 1
-            border.color: userInput.activeFocus ? Color.primary : Color.subtle
-
-            RowLayout {
-              anchors {
-                fill: parent
-                leftMargin: 14
-                rightMargin: 14
-              }
-              spacing: 10
+            Rectangle {
+              Layout.alignment: Qt.AlignHCenter
+              implicitWidth: Math.min(contentCol.width * 0.85, dateLabel.implicitWidth + Math.round(34 * greeterWindow.uiScale))
+              height: Math.round(48 * greeterWindow.uiScale)
+              radius: height / 2
+              color: Color.surface
 
               Text {
-                text: "person"
-                font.family: Config.iconFont
-                font.pixelSize: 18
-                color: userInput.activeFocus ? Color.primary : Color.muted
-              }
-
-              Item {
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-
-                TextInput {
-                  id: userInput
-                  anchors.fill: parent
-                  verticalAlignment: TextInput.AlignVCenter
-                  font.family: Config.textFont
-                  font.pixelSize: 14
-                  color: Color.text
-                  text: GreeterService.defaultUsername
-                  clip: true
-                  onAccepted: passInput.forceActiveFocus()
-                }
-
-                Text {
-                  anchors.fill: parent
-                  verticalAlignment: Text.AlignVCenter
-                  font: userInput.font
-                  color: Color.muted
-                  text: "Username"
-                  visible: !userInput.text && !userInput.activeFocus
-                }
-              }
-            }
-          }
-
-          // Password Input
-          Rectangle {
-            Layout.fillWidth: true
-            height: 42
-            radius: 21
-            color: Color.surface
-            border.width: passInput.activeFocus ? 2 : 1
-            border.color: passInput.activeFocus ? Color.primary : Color.subtle
-            opacity: !GreeterService.isAuthenticating ? 1.0 : 0.6
-
-            RowLayout {
-              anchors {
-                fill: parent
-                leftMargin: 14
-                rightMargin: 14
-              }
-              spacing: 10
-
-              Text {
-                text: "lock"
-                font.family: Config.iconFont
-                font.pixelSize: 18
-                color: passInput.activeFocus ? Color.primary : Color.muted
-              }
-
-              Item {
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-
-                TextInput {
-                  id: passInput
-                  anchors.fill: parent
-                  verticalAlignment: TextInput.AlignVCenter
-                  font.family: Config.textFont
-                  font.pixelSize: 14
-                  color: Color.text
-                  echoMode: TextInput.Password
-                  enabled: !GreeterService.isAuthenticating
-                  clip: true
-                  onAccepted: submit()
-
-                  function submit(): void {
-                    if (userInput.text.length > 0 && passInput.text.length > 0) {
-                      GreeterService.login(userInput.text, passInput.text);
-                    }
-                  }
-                }
-
-                Text {
-                  anchors.fill: parent
-                  verticalAlignment: Text.AlignVCenter
-                  font: passInput.font
-                  color: Color.muted
-                  text: "Password"
-                  visible: !passInput.text && !passInput.activeFocus
-                }
-              }
-            }
-          }
-
-          // Login Button
-          Rectangle {
-            id: loginBtn
-            Layout.fillWidth: true
-            height: 40
-            radius: 20
-            readonly property bool canSubmit: userInput.text.length > 0 && passInput.text.length > 0 && !GreeterService.isAuthenticating
-            color: loginMouse.pressed ? Qt.darker(Color.primary, 1.15) : Color.primary
-            opacity: canSubmit ? 1.0 : 0.45
-
-            RowLayout {
-              anchors.centerIn: parent
-              spacing: 8
-
-              Text {
-                text: "login"
-                font.family: Config.iconFont
-                font.pixelSize: 18
-                color: Color.background
-              }
-
-              Text {
-                text: GreeterService.isAuthenticating ? "Logging in..." : "Login"
+                id: dateLabel
+                anchors.centerIn: parent
+                width: Math.min(implicitWidth, parent.width - Math.round(24 * greeterWindow.uiScale))
+                horizontalAlignment: Text.AlignHCenter
+                elide: Text.ElideRight
+                text: GreeterService.currentDate
                 font.family: Config.textFont
-                font.pixelSize: 14
+                font.pixelSize: Math.max(14, Math.round(15 * greeterWindow.uiScale))
+                font.weight: Font.Medium
+                font.letterSpacing: 0.4
+                color: Color.text
+              }
+            }
+          }
+
+          // Expressive Avatar & User Switcher
+          Item {
+            Layout.fillWidth: true
+            Layout.preferredHeight: Math.round(138 * greeterWindow.uiScale)
+
+            readonly property real avatarSize: Math.round(134 * greeterWindow.uiScale)
+            readonly property real navSize: Math.round(46 * greeterWindow.uiScale)
+
+            Rectangle {
+              id: avatar
+              width: parent.avatarSize
+              height: parent.avatarSize
+              radius: width / 2
+              anchors.centerIn: parent
+              color: Color.primary
+
+              Text {
+                anchors.centerIn: parent
+                text: GreeterService.selectedUser ? GreeterService.selectedUser.name.charAt(0).toUpperCase() : "person"
+                font.family: GreeterService.selectedUser ? Config.textFont : Config.iconFont
+                font.pixelSize: Math.round((GreeterService.selectedUser ? 62 : 68) * greeterWindow.uiScale)
                 font.weight: Font.DemiBold
                 color: Color.background
               }
             }
 
-            MouseArea {
-              id: loginMouse
-              anchors.fill: parent
-              enabled: loginBtn.canSubmit
-              cursorShape: Qt.PointingHandCursor
-              onClicked: passInput.submit()
+            Rectangle {
+              width: parent.navSize
+              height: parent.navSize
+              radius: height / 2
+              anchors.verticalCenter: avatar.verticalCenter
+              anchors.right: avatar.left
+              anchors.rightMargin: Math.max(14, Math.round(24 * greeterWindow.uiScale))
+              visible: GreeterService.availableUsers.length > 1
+              color: previousUserMouse.containsMouse ? Color.primary : Color.surface
+              opacity: GreeterService.isAuthenticating ? 0.5 : 1
+              scale: previousUserMouse.pressed ? 0.92 : (previousUserMouse.containsMouse ? 1.05 : 1.0)
+
+              Behavior on color {
+                ColorAnimation {
+                  duration: 160
+                }
+              }
+              Behavior on scale {
+                NumberAnimation {
+                  duration: 180
+                  easing.type: Easing.OutBack
+                }
+              }
+
+              Text {
+                anchors.centerIn: parent
+                text: "chevron_left"
+                font.family: Config.iconFont
+                font.pixelSize: Math.round(26 * greeterWindow.uiScale)
+                color: previousUserMouse.containsMouse ? Color.background : Color.text
+              }
+
+              MouseArea {
+                id: previousUserMouse
+                anchors.fill: parent
+                hoverEnabled: true
+                enabled: GreeterService.availableUsers.length > 1 && !GreeterService.isAuthenticating
+                cursorShape: Qt.PointingHandCursor
+                onClicked: greeterWindow.moveSelectedUser(-1)
+              }
+            }
+
+            Rectangle {
+              width: parent.navSize
+              height: parent.navSize
+              radius: height / 2
+              anchors.verticalCenter: avatar.verticalCenter
+              anchors.left: avatar.right
+              anchors.leftMargin: Math.max(14, Math.round(24 * greeterWindow.uiScale))
+              visible: GreeterService.availableUsers.length > 1
+              color: nextUserMouse.containsMouse ? Color.primary : Color.surface
+              opacity: GreeterService.isAuthenticating ? 0.5 : 1
+              scale: nextUserMouse.pressed ? 0.92 : (nextUserMouse.containsMouse ? 1.05 : 1.0)
+
+              Behavior on color {
+                ColorAnimation {
+                  duration: 160
+                }
+              }
+              Behavior on scale {
+                NumberAnimation {
+                  duration: 180
+                  easing.type: Easing.OutBack
+                }
+              }
+
+              Text {
+                anchors.centerIn: parent
+                text: "chevron_right"
+                font.family: Config.iconFont
+                font.pixelSize: Math.round(26 * greeterWindow.uiScale)
+                color: nextUserMouse.containsMouse ? Color.background : Color.text
+              }
+
+              MouseArea {
+                id: nextUserMouse
+                anchors.fill: parent
+                hoverEnabled: true
+                enabled: GreeterService.availableUsers.length > 1 && !GreeterService.isAuthenticating
+                cursorShape: Qt.PointingHandCursor
+                onClicked: greeterWindow.moveSelectedUser(1)
+              }
             }
           }
 
-          // Status Message
-          Text {
-            visible: GreeterService.statusMessage.length > 0
-            text: GreeterService.statusMessage
-            font.family: Config.textFont
-            font.pixelSize: 12
-            color: {
-              const msg = GreeterService.statusMessage.toLowerCase();
-              return (msg.includes("failed") || msg.includes("error") || msg.includes("failure")) ? Color.error : Color.muted;
-            }
+          // Username Pill Container
+          Rectangle {
             Layout.alignment: Qt.AlignHCenter
-            Layout.topMargin: 4
-          }
-        }
-      }
+            readonly property real padX: Math.round(20 * greeterWindow.uiScale)
+            readonly property real padY: Math.round(10 * greeterWindow.uiScale)
 
-      // Bottom Actions: Power controls
-      RowLayout {
-        z: 1
-        anchors {
-          bottom: parent.bottom
-          horizontalCenter: parent.horizontalCenter
-          margins: 28
-        }
-        spacing: 12
+            implicitWidth: Math.min(contentCol.width * 0.78, usernameLabel.implicitWidth + padX * 2)
+            implicitHeight: usernameLabel.implicitHeight + padY * 2
+            radius: height / 2
+            color: Color.surface
 
-        Repeater {
-          model: [
-            {
-              icon: "bedtime",
-              action: () => GreeterService.suspend()
-            },
-            {
-              icon: "restart_alt",
-              action: () => GreeterService.reboot()
-            },
-            {
-              icon: "power_settings_new",
-              action: () => GreeterService.powerOff()
+            Behavior on implicitWidth {
+              NumberAnimation {
+                duration: 180
+                easing.type: Easing.OutCubic
+              }
             }
-          ]
-
-          delegate: Rectangle {
-            required property var modelData
-            width: 38
-            height: 38
-            radius: 19
-            color: powerMouse.containsMouse ? Color.overlay : "transparent"
 
             Text {
+              id: usernameLabel
               anchors.centerIn: parent
-              text: parent.modelData.icon
-              font.family: Config.iconFont
-              font.pixelSize: 20
+              width: Math.min(implicitWidth, parent.width - parent.padX * 2)
+              text: GreeterService.isLoadingUsers ? "Loading accounts…" : (GreeterService.selectedUser ? GreeterService.selectedUser.username : "No accounts available")
+              horizontalAlignment: Text.AlignHCenter
+              font.family: Config.textFont
+              font.pixelSize: Math.max(15, Math.round(17 * greeterWindow.uiScale))
+              font.weight: Font.Medium
+              font.letterSpacing: 0.2
               color: Color.text
+              elide: Text.ElideRight
             }
+          }
 
-            MouseArea {
-              id: powerMouse
-              anchors.fill: parent
-              hoverEnabled: true
-              cursorShape: Qt.PointingHandCursor
-              onClicked: parent.modelData.action()
+          // Reusable M3 Expressive Password Input
+          PasswordInput {
+            id: passInput
+            Layout.alignment: Qt.AlignHCenter
+            Layout.fillWidth: true
+            Layout.maximumWidth: Math.round(440 * greeterWindow.uiScale)
+            uiScale: greeterWindow.uiScale
+            enabled: !!GreeterService.selectedUser
+            busy: GreeterService.isAuthenticating
+            onSubmitted: password => {
+              if (GreeterService.selectedUser)
+                GreeterService.login(GreeterService.selectedUser.username, password);
+            }
+          }
+
+          // Status / Error Feedback
+          Text {
+            Layout.fillWidth: true
+            visible: GreeterService.statusMessage.length > 0
+            text: GreeterService.statusMessage
+            horizontalAlignment: Text.AlignHCenter
+            wrapMode: Text.Wrap
+            font.family: Config.textFont
+            font.pixelSize: Math.max(12, Math.round(13 * greeterWindow.uiScale))
+            font.weight: Font.Medium
+            color: {
+              const msg = GreeterService.statusMessage.toLowerCase();
+              return (msg.includes("failed") || msg.includes("error") || msg.includes("failure") || msg.includes("could not")) ? Color.error : Color.muted;
             }
           }
         }
       }
 
-      Component.onCompleted: passInput.forceActiveFocus()
+      // Bottom-Left Screen Corner: Reusable Expandable Power Pill
+      ExpandableActionPill {
+        id: powerPill
+        anchors.left: parent.left
+        anchors.bottom: parent.bottom
+        anchors.leftMargin: greeterWindow.screenMargin
+        anchors.bottomMargin: greeterWindow.screenMargin
+        uiScale: greeterWindow.uiScale
+        triggerIcon: "power_settings_new"
+        actions: [
+          {
+            icon: "bedtime",
+            label: "Sleep",
+            action: () => GreeterService.suspend()
+          },
+          {
+            icon: "restart_alt",
+            label: "Restart",
+            action: () => GreeterService.reboot()
+          },
+          {
+            icon: "power_settings_new",
+            label: "Shut down",
+            action: () => GreeterService.powerOff()
+          }
+        ]
+        onToggled: isExpanded => {
+          if (isExpanded)
+            sessionPill.expanded = false;
+        }
+      }
+
+      // Bottom-Right Screen Corner: Reusable Expandable Session Selector Pill
+      ExpandableSelectorPill {
+        id: sessionPill
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        anchors.rightMargin: greeterWindow.screenMargin
+        anchors.bottomMargin: greeterWindow.screenMargin
+        uiScale: greeterWindow.uiScale
+        icon: "desktop_windows"
+        emptyText: "No sessions"
+        loading: GreeterService.isLoadingSessions
+        items: GreeterService.availableSessions
+        selectedIndex: GreeterService.selectedSessionIndex
+        maxExpandedWidth: parent.width - powerPill.width - greeterWindow.screenMargin * 3
+        onToggled: isExpanded => {
+          if (isExpanded)
+            powerPill.expanded = false;
+        }
+        onItemSelected: index => GreeterService.selectSession(index)
+      }
+
+      Component.onCompleted: {
+        if (modelData === Quickshell.screens[0])
+          Qt.callLater(() => passInput.forceInputFocus());
+      }
 
       Connections {
         target: GreeterService
+
         function onLoginFailed(): void {
-          passInput.text = "";
-          passInput.forceActiveFocus();
+          passInput.clear();
+          passInput.forceInputFocus();
         }
       }
     }

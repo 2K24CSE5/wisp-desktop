@@ -14,6 +14,8 @@ fi
 readonly SCRIPT_DIR PROJECT_DIR
 readonly CONFIG_DIR="$HOME/.cache/wisp-desktop"
 readonly USER_PROJECT_DIR="$HOME/.config/quickshell/wisp-desktop"
+readonly GREETER_QML="$USER_PROJECT_DIR/greeter.qml"
+readonly DESKTOP_HOME="$HOME"
 DEFAULT_REPO_URL="https://github.com/2K24CSE5/wisp-desktop.git"
 REPOSITORY_URL="$DEFAULT_REPO_URL"
 if [[ -n "$PROJECT_DIR" ]] && command -v git >/dev/null 2>&1 &&
@@ -27,7 +29,6 @@ if [[ -n "$PROJECT_DIR" ]] && command -v git >/dev/null 2>&1 &&
   fi
 fi
 readonly REPOSITORY_URL
-readonly INSTALL_DIR="/usr/share/wisp-desktop"
 readonly GREETER_LAUNCHER="/usr/local/bin/wisp-greeter"
 readonly GREETER_NIRI_CONFIG="/etc/greetd/niri-greeter.kdl"
 readonly GREETD_CONFIG="/etc/greetd/config.toml"
@@ -603,21 +604,7 @@ deploy_project() {
       fail "Project file or directory is missing: $USER_PROJECT_DIR/$required"
   done
 
-  run_root install -d -o root -g root -m 0755 "$INSTALL_DIR"
-
-  if [[ "$USER_PROJECT_DIR" != "$INSTALL_DIR" ]]; then
-    local item
-    for item in shell.qml greeter.qml components configs modules services matugen; do
-      if [[ -e "$USER_PROJECT_DIR/$item" ]]; then
-        run_root cp -a -- "$USER_PROJECT_DIR/$item" "$INSTALL_DIR/"
-      fi
-    done
-  fi
-
-  run_root chown -R root:root "$INSTALL_DIR"
-  run_root find "$INSTALL_DIR" -type d -exec chmod 0755 {} +
-  run_root find "$INSTALL_DIR" -type f -exec chmod 0644 {} +
-  log_ok "Installed shell files from $USER_PROJECT_DIR into $INSTALL_DIR."
+  log_ok "Greeter will load its files directly from $USER_PROJECT_DIR."
 }
 
 install_greeter_launcher() {
@@ -629,6 +616,7 @@ set -Eeuo pipefail
 
 unset DISPLAY WAYLAND_DISPLAY WAYLAND_SOCKET
 umask 0077
+export HOME="$DESKTOP_HOME"
 
 runtime_dir="/run/user/\$(id -u)"
 if [[ ! -d "\$runtime_dir" || ! -w "\$runtime_dir" ]]; then
@@ -642,7 +630,7 @@ export XDG_SESSION_TYPE=wayland
 export QT_QPA_PLATFORM=wayland
 export XDG_DATA_DIRS="/usr/local/share:/usr/share"
 
-exec niri --config "$GREETER_NIRI_CONFIG" -- quickshell -p "$INSTALL_DIR/greeter.qml"
+exec niri --config "$GREETER_NIRI_CONFIG" -- quickshell -p "$GREETER_QML"
 EOF
 
   cat <<'EOF' | run_root install -o root -g root -m 0644 /dev/stdin "$GREETER_NIRI_CONFIG"
@@ -670,7 +658,7 @@ hotkey-overlay {
     skip-at-startup
 }
 EOF
-  log_ok "Installed greetd launcher and isolated Niri configuration."
+  log_ok "Installed greetd launcher for $GREETER_QML and isolated Niri configuration."
 }
 
 setup_security_and_display_managers() {
@@ -896,7 +884,7 @@ verify_installation() {
   done
 
   [[ -x "$GREETER_LAUNCHER" ]] || fail "Greeter launcher was not installed."
-  [[ -f "$INSTALL_DIR/greeter.qml" ]] || fail "Greeter QML file was not installed."
+  [[ -f "$GREETER_QML" ]] || fail "Greeter QML file was not installed."
   grep -Fq "command = \"$GREETER_LAUNCHER\"" "$GREETD_CONFIG" ||
     fail "The greetd default session does not use the Wisp Desktop launcher."
   fc-list : family | grep -qi "Material Symbols Rounded" ||

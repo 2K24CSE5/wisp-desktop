@@ -12,15 +12,99 @@ Singleton {
   property string statusMessage: ""
   property bool isAuthenticating: false
   property var availableSessions: []
+  property var availableUsers: []
   property bool isLoadingSessions: true
+  property bool isLoadingUsers: true
   property int selectedSessionIndex: 0
+  property int selectedUserIndex: -1
 
   readonly property var selectedSession: availableSessions[Math.max(0, Math.min(selectedSessionIndex, availableSessions.length - 1))]
-  readonly property string defaultUsername: Config.targetUser
+  readonly property var selectedUser: selectedUserIndex >= 0 ? availableUsers[selectedUserIndex] : null
+  readonly property string lastLoggedInName: {
+    const user = availableUsers.find(entry => entry.username === Config.targetUser);
+    return user ? user.name : Config.targetUser;
+  }
   readonly property string greetdSocket: Quickshell.env("GREETD_SOCK") || "/run/greetd.sock"
   readonly property bool isLiveGreetd: Quickshell.env("GREETD_SOCK") !== undefined
 
   signal loginFailed
+
+  function selectInitialUser(): void {
+    if (availableUsers.length === 0)
+      return;
+
+    const index = availableUsers.findIndex(user => user.username === Config.targetUser);
+    selectedUserIndex = index >= 0 ? index : 0;
+  }
+
+  function selectUser(username: string): void {
+    const index = availableUsers.findIndex(user => user.username === username);
+    if (index >= 0)
+      selectedUserIndex = index;
+  }
+
+  Process {
+    id: userDiscoveryProc
+    property string stdoutBuffer: ""
+    property string stderrBuffer: ""
+
+    stdout: SplitParser {
+      onRead: data => userDiscoveryProc.stdoutBuffer += data
+    }
+
+    stderr: SplitParser {
+      onRead: data => userDiscoveryProc.stderrBuffer += data
+    }
+
+    onExited: code => {
+      service.isLoadingUsers = false;
+      if (code !== 0) {
+        console.warn("GreeterService: user discovery failed:", stderrBuffer.trim());
+        service.statusMessage = "Could not load user accounts";
+        return;
+      }
+
+      try {
+        service.availableUsers = JSON.parse(stdoutBuffer);
+        service.selectInitialUser();
+        if (service.availableUsers.length === 0)
+          service.statusMessage = "No user accounts found";
+      } catch (error) {
+        console.warn("GreeterService: could not parse user accounts:", error);
+        service.statusMessage = "Could not read user accounts";
+      }
+    }
+
+    Component.onCompleted: {
+      command = ["python3", "-c", `
+import configparser, json, os, pwd
+
+users = []
+for account in pwd.getpwall():
+    if account.pw_uid < 1000 or account.pw_uid >= 60000:
+        continue
+    if account.pw_shell in ("/sbin/nologin", "/usr/sbin/nologin", "/bin/false"):
+        continue
+    if not os.path.isdir(account.pw_dir):
+        continue
+
+    display_name = account.pw_name
+    account_file = os.path.join("/var/lib/AccountsService/users", account.pw_name)
+    parser = configparser.ConfigParser(interpolation=None)
+    try:
+        parser.read(account_file, encoding="utf-8")
+        display_name = parser.get("User", "RealName", fallback=display_name).strip() or display_name
+    except (configparser.Error, OSError):
+        pass
+
+    users.append({"username": account.pw_name, "name": display_name})
+
+users.sort(key=lambda user: (user["name"].casefold(), user["username"].casefold()))
+print(json.dumps(users))
+`];
+      running = true;
+    }
+  }
 
   Process {
     id: sessionDiscoveryProc
@@ -115,6 +199,7 @@ print(json.dumps(sessions))
     id: authProc
     property string stdoutBuffer: ""
     property string stderrBuffer: ""
+    property string username: ""
 
     stdout: SplitParser {
       onRead: data => authProc.stdoutBuffer += data
@@ -129,6 +214,9 @@ print(json.dumps(sessions))
       authProc.stderrBuffer = "";
 
       if (code === 0) {
+        Config.saveSettings(Object.assign({}, Config.settings, {
+          targetUser: authProc.username
+        }));
         service.statusMessage = "Authenticated. Launching session...";
         sessionLaunchTimer.start();
       } else {
@@ -153,6 +241,7 @@ print(json.dumps(sessions))
 
     isAuthenticating = true;
     service.statusMessage = "Authenticating...";
+    authProc.username = username;
 
     const sessionCmd = JSON.stringify(selectedSession.command);
     const pyAuthScript = `
