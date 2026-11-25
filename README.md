@@ -1,1 +1,1 @@
-# wisp
+# wisp-desktop
