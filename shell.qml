@@ -3,6 +3,8 @@ import qs.configs
 import qs.services
 import qs.modules.wallpaper
 import qs.modules.launcher
+import qs.modules.bar
+import qs.modules.polkit
 
 ShellRoot {
   readonly property var _niri: Niri
@@ -10,4 +12,6 @@ ShellRoot {
 
   Wallpaper {}
   Launcher {}
+  Bar {}
+  Polkit {}
 }

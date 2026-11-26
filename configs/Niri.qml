@@ -83,6 +83,7 @@ binds {
   Mod+O { toggle-overview; }
   Mod+Page_Up { focus-workspace-up; }
   Mod+Page_Down { focus-workspace-down; }
+  Print { screenshot; }
 }
 `
 

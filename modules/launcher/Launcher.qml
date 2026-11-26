@@ -238,7 +238,7 @@ Scope {
               width: appList.width
               height: Math.round(64 * launcherWindow.uiScale)
               radius: Math.round((isSelected ? 24 : 16) * launcherWindow.uiScale)
-              color: isSelected ? Color.overlay : (isHovered ? Color.surface : "transparent")
+              color: isSelected ? Color.surface : (isHovered ? Color.surface : "transparent")
 
               Behavior on radius {
                 NumberAnimation {
@@ -264,7 +264,7 @@ Scope {
                   Layout.preferredWidth: Math.round(44 * launcherWindow.uiScale)
                   Layout.preferredHeight: Math.round(44 * launcherWindow.uiScale)
                   radius: Math.round((isSelected ? 16 : 12) * launcherWindow.uiScale)
-                  color: Color.surface
+                  color: isSelected ? Color.overlay : Color.surface
 
                   Behavior on radius {
                     NumberAnimation {
@@ -304,7 +304,7 @@ Scope {
                     elide: Text.ElideRight
                     font.family: Config.textFont
                     font.pixelSize: Math.max(14, Math.round(16 * launcherWindow.uiScale))
-                    font.weight: isSelected ? Font.Bold : Font.Medium
+                    font.weight: Font.Medium
                     color: isSelected ? Color.primary : Color.text
                   }
 
@@ -337,13 +337,6 @@ Scope {
                       font.family: Config.textFont
                       font.pixelSize: Math.max(10, Math.round(11 * launcherWindow.uiScale))
                       font.weight: Font.Bold
-                      color: Color.background
-                    }
-
-                    Text {
-                      text: "keyboard_return"
-                      font.family: Config.iconFont
-                      font.pixelSize: Math.round(14 * launcherWindow.uiScale)
                       color: Color.background
                     }
                   }
