@@ -18,12 +18,18 @@ Singleton {
 spawn-sh-at-startup "quickshell -p ~/.config/quickshell/wisp-desktop"
 prefer-no-csd
 
-binds {
-  Mod+D { spawn-sh "quickshell -c wisp-desktop ipc call launcher toggle"; }
-}
-
 hotkey-overlay {
   skip-at-startup
+}
+
+input {
+  touchpad {
+    tap
+    natural-scroll
+  }
+  mouse {
+    natural-scroll
+  }
 }
 
 layer-rule {
@@ -41,22 +47,39 @@ recent-windows {
   highlight {
     active-color "${Color.primary}"
     urgent-color "${Color.error}"
+    corner-radius 12
   }
 }
 
 layout {
   background-color "transparent"
   focus-ring {
+    off
     active-color "${Color.primary}"
     inactive-color "${Color.subtle}"
     urgent-color "${Color.error}"
   }
 
   border {
+    off
     active-color "${Color.primary}"
     inactive-color "${Color.subtle}"
     urgent-color "${Color.error}"
   }
+}
+
+window-rule {
+    geometry-corner-radius 12
+    clip-to-geometry true
+    open-maximized true
+}
+
+binds {
+  Mod+T {spawn-sh "ghostty"; }
+  Mod+D { spawn-sh "quickshell -c wisp-desktop ipc call launcher toggle"; }
+  Mod+Q { close-window; }
+  Mod+Left { focus-column-left; }
+  Mod+Right { focus-column-right; }
 }
 `
 

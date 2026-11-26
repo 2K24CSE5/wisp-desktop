@@ -23,7 +23,7 @@ Singleton {
 
     stdoutBuf = "";
     stderrBuf = "";
-    matugenProcess.command = ["matugen", "image", cleanPath, "--source-color-index", "0", "--json", "hex", "--dry-run"];
+    matugenProcess.command = ["matugen", "image", cleanPath, "--config", Paths.homeDir + "/.config/quickshell/wisp-desktop/matugen/config.toml", "--source-color-index", "0", "--json", "hex"];
     matugenProcess.running = true;
   }
 
