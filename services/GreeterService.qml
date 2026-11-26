@@ -118,16 +118,6 @@ Singleton {
     }
   }
 
-  Timer {
-    id: sessionLaunchTimer
-    interval: 350
-    repeat: false
-    onTriggered: {
-      Quickshell.execDetached(["niri", "msg", "action", "quit", "--skip-confirmation"]);
-      Qt.quit();
-    }
-  }
-
   Process {
     id: authProc
     stdinEnabled: true
@@ -160,7 +150,8 @@ Singleton {
           targetUser: authProc.username
         }));
         service.statusMessage = "Authenticated. Launching session...";
-        sessionLaunchTimer.start();
+        Quickshell.execDetached(["niri", "msg", "action", "quit", "--skip-confirmation"]);
+        Qt.quit();
       } else {
         service.statusMessage = output || "Authentication failed";
         service.loginFailed();
