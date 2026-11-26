@@ -31,6 +31,8 @@ readonly REPOSITORY_URL
 readonly GREETER_LAUNCHER="/usr/local/bin/wisp-greeter"
 readonly GREETER_NIRI_CONFIG="/etc/greetd/niri-greeter.kdl"
 readonly GREETD_CONFIG="/etc/greetd/config.toml"
+readonly OO7_LOGIN_HELPER="/usr/libexec/oo7-daemon-login"
+readonly OO7_LOGIN_HELPER_REAL="${OO7_LOGIN_HELPER}.wisp-real"
 
 SKIP_PACKAGES=false
 ENABLE_GREETD=true
@@ -559,7 +561,11 @@ deploy_project() {
       fail "Could not clone Wisp Desktop into $USER_PROJECT_DIR."
   fi
 
-  for required in shell.qml greeter.qml components configs modules services; do
+  for required in \
+    shell.qml greeter.qml components configs modules services \
+    scripts/greeter/greetd_auth.py \
+    scripts/greeter/discover_users.py \
+    scripts/greeter/discover_sessions.py; do
     [[ -e "$USER_PROJECT_DIR/$required" ]] ||
       fail "Project file or directory is missing: $USER_PROJECT_DIR/$required"
   done
@@ -588,7 +594,7 @@ export XDG_SESSION_TYPE=wayland
 export QT_QPA_PLATFORM=wayland
 export XDG_DATA_DIRS="/usr/local/share:/usr/share"
 
-exec niri --config "$GREETER_NIRI_CONFIG" -- quickshell -p "$GREETER_QML"
+exec systemd-cat --identifier=wisp-greeter niri --config "$GREETER_NIRI_CONFIG" -- quickshell -p "$GREETER_QML"
 EOF
 
   cat <<'EOF' | run_root install -o root -g root -m 0644 /dev/stdin "$GREETER_NIRI_CONFIG"
@@ -615,6 +621,26 @@ layout {
 hotkey-overlay {
     skip-at-startup
 }
+EOF
+}
+
+install_oo7_login_wrapper() {
+  [[ -x "$OO7_LOGIN_HELPER" ]] || return 0
+
+  if grep -Fq "Wisp Desktop wrapper for oo7-daemon-login" "$OO7_LOGIN_HELPER"; then
+    [[ -x "$OO7_LOGIN_HELPER_REAL" ]] ||
+      fail "The oo7 login helper wrapper exists, but its original executable is missing."
+    return 0
+  fi
+
+  run_root install -o root -g root -m 0755 "$OO7_LOGIN_HELPER" "$OO7_LOGIN_HELPER_REAL" ||
+    fail "Could not preserve the original oo7 login helper."
+
+  cat <<'EOF' | run_root install -o root -g root -m 0755 /dev/stdin "$OO7_LOGIN_HELPER"
+#!/usr/bin/bash
+set -Eeuo pipefail
+# Wisp Desktop wrapper for oo7-daemon-login
+exec systemd-cat --identifier=oo7-daemon-login -- /usr/libexec/oo7-daemon-login.wisp-real "$@"
 EOF
 }
 
@@ -853,6 +879,7 @@ main() {
   setup_niri_configuration
   install_greeter_launcher
   setup_security_and_display_managers
+  install_oo7_login_wrapper
   configure_greetd
   enable_greetd
   verify_installation

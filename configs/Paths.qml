@@ -8,6 +8,10 @@ Singleton {
   readonly property string homeDir: Quickshell.env("HOME")
   readonly property string cacheDir: homeDir + "/.cache/wisp-desktop"
   readonly property string niriDir: homeDir + "/.config/niri"
+  readonly property string greeterScriptsDir: homeDir + "/.config/quickshell/wisp-desktop/scripts/greeter"
+  readonly property string greetdAuthHelper: greeterScriptsDir + "/greetd_auth.py"
+  readonly property string greetdUserDiscovery: greeterScriptsDir + "/discover_users.py"
+  readonly property string greetdSessionDiscovery: greeterScriptsDir + "/discover_sessions.py"
 
   readonly property string settingsFile: cacheDir + "/settings.json"
   readonly property string colorsFile: cacheDir + "/colors.json"

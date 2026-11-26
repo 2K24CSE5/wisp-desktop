@@ -38,6 +38,15 @@ Singleton {
     }
   }
 
+  Connections {
+    target: DesktopEntries.applications
+
+    function onValuesChanged(): void {
+      root.refreshApps();
+      root.filterApps();
+    }
+  }
+
   // --- Lifecycle ---
   function open() {
     refreshApps();
