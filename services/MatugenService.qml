@@ -53,12 +53,20 @@ Singleton {
 
   function applyJson(raw: string): void {
     try {
-      const parsed = JSON.parse(raw);
+      const jsonStart = raw.indexOf("{");
+      const jsonEnd = raw.lastIndexOf("}");
+      if (jsonStart === -1 || jsonEnd < jsonStart) {
+        console.warn("MatugenService: no JSON object found in Matugen output");
+        return;
+      }
+
+      const parsed = JSON.parse(raw.slice(jsonStart, jsonEnd + 1));
       const colors = parsed.colors ?? parsed;
-      const newJson = JSON.stringify({
+      const palettes = {
         dark: mapPalette(colors, "dark", Color.darkPalette),
         light: mapPalette(colors, "light", Color.lightPalette)
-      }, null, 2);
+      };
+      const newJson = JSON.stringify(palettes, null, 2);
 
       if (newJson !== colorsWriter.text())
         colorsWriter.setText(newJson);
