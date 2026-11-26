@@ -12,6 +12,7 @@ Singleton {
   property int selectedIndex: 0
   property var filteredApps: []
   property var allApps: []
+  property point lastPointerPosition: Qt.point(-1, -1)
 
   // --- IPC Endpoint ---
   IpcHandler {
@@ -42,6 +43,7 @@ Singleton {
     refreshApps();
     searchQuery = "";
     selectedIndex = 0;
+    lastPointerPosition = Qt.point(-1, -1);
     filterApps();
     isOpen = true;
   }
@@ -128,6 +130,13 @@ Singleton {
     if (filteredApps.length === 0)
       return;
     selectedIndex = (selectedIndex - 1 + filteredApps.length) % filteredApps.length;
+  }
+
+  function updateMouseSelection(index, position) {
+    const moved = lastPointerPosition.x >= 0 && (position.x !== lastPointerPosition.x || position.y !== lastPointerPosition.y);
+    lastPointerPosition = Qt.point(position.x, position.y);
+    if (moved)
+      selectedIndex = index;
   }
 
   // --- Execution ---

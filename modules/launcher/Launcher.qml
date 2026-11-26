@@ -355,7 +355,8 @@ Scope {
                 anchors.fill: parent
                 hoverEnabled: true
                 cursorShape: Qt.PointingHandCursor
-                onEntered: LauncherService.selectedIndex = index
+                onEntered: LauncherService.updateMouseSelection(index, itemMouse.mapToItem(appList, itemMouse.mouseX, itemMouse.mouseY))
+                onPositionChanged: LauncherService.updateMouseSelection(index, itemMouse.mapToItem(appList, itemMouse.mouseX, itemMouse.mouseY))
                 onClicked: LauncherService.launchApp(modelData)
               }
             }
