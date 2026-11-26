@@ -56,6 +56,16 @@ def response_description(response, fallback):
     return description.strip() if isinstance(description, str) and description.strip() else fallback
 
 
+def authentication_failure_detail(authentication_errors, response):
+    detail = authentication_errors[-1] if authentication_errors else response_description(
+        response, "Incorrect password. Please try again."
+    )
+    normalized_detail = detail.lower()
+    if "auth_err" in normalized_detail or "pam_authenticate" in normalized_detail:
+        return "Incorrect password. Please try again."
+    return detail
+
+
 def cancel_session(connection):
     try:
         send_message(connection, {"type": "cancel_session"})
@@ -94,9 +104,7 @@ def authenticate(connection, username, password):
     cancel_session(connection)
     if response and response.get("type") == "error":
         if response.get("error_type") == "auth_error":
-            detail = authentication_errors[-1] if authentication_errors else response_description(
-                response, "Incorrect username or password"
-            )
+            detail = authentication_failure_detail(authentication_errors, response)
             raise GreeterAuthError("Authentication failed: " + detail)
         raise GreeterAuthError(response_description(response, "Could not create an authenticated session"))
     if response is None:

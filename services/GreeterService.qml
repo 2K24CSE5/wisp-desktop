@@ -123,8 +123,7 @@ Singleton {
     interval: 350
     repeat: false
     onTriggered: {
-      const greeterUser = Quickshell.env("USER") || "greeter";
-      Quickshell.execDetached(["pkill", "-u", greeterUser, "-9"]);
+      Quickshell.execDetached(["niri", "msg", "action", "quit", "--skip-confirmation"]);
       Qt.quit();
     }
   }
