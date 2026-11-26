@@ -80,6 +80,9 @@ binds {
   Mod+Q { close-window; }
   Mod+Left { focus-column-left; }
   Mod+Right { focus-column-right; }
+  Mod+O { toggle-overview; }
+  Mod+Page_Up { focus-workspace-up; }
+  Mod+Page_Down { focus-workspace-down; }
 }
 `
 
