@@ -11,26 +11,25 @@ Item {
   property bool forceExpanded: false
   property real frameInset: 8
   property real expandedHeight: 42
-  property real collapsedHeight: 6
+  property real collapsedHeight: 16
+  property real collapsedWidth: 16
   property real horizontalPadding: 28
-  property real collapsedWidthRatio: 0.5
   property real cornerRadius: 14
   property color expandedColor: Color.background
-  property color collapsedColor: Color.subtle
+  property color collapsedColor: "transparent"
 
   default property alias content: contentContainer.data
 
   readonly property bool expanded: root.forceExpanded || hoverHandler.hovered
   readonly property real contentWidth: contentContainer.childrenRect.width
   readonly property real fullWidth: Math.max(40, contentWidth + root.horizontalPadding)
-  readonly property real lineWidth: Math.round(fullWidth * root.collapsedWidthRatio)
   readonly property bool isLeft: root.edge === "left"
   readonly property bool isBottom: root.verticalEdge === "bottom"
 
   property real earRadius: expanded ? root.cornerRadius : 0
   property color fillColor: expanded ? root.expandedColor : root.collapsedColor
 
-  implicitWidth: expanded ? fullWidth : lineWidth
+  implicitWidth: expanded ? fullWidth : root.collapsedWidth
   implicitHeight: expanded ? ((root.expandedHeight + root.frameInset) + root.cornerRadius) : root.collapsedHeight
 
   Behavior on earRadius {
@@ -55,7 +54,7 @@ Item {
     anchors.top: root.isBottom ? undefined : parent.top
 
     height: root.expanded ? (root.expandedHeight + root.frameInset) : root.collapsedHeight
-    width: root.expanded ? root.fullWidth : root.lineWidth
+    width: root.expanded ? root.fullWidth : root.collapsedWidth
     topLeftRadius: root.isBottom ? (root.isLeft ? 0 : (root.expanded ? root.cornerRadius : root.collapsedHeight / 2)) : 0
     topRightRadius: root.isBottom ? (root.isLeft ? (root.expanded ? root.cornerRadius : root.collapsedHeight / 2) : 0) : 0
     bottomLeftRadius: !root.isBottom ? (root.isLeft ? 0 : (root.expanded ? root.cornerRadius : root.collapsedHeight / 2)) : 0

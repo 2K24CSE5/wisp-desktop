@@ -5,6 +5,7 @@ import qs.modules.wallpaper
 import qs.modules.launcher
 import qs.modules.bar
 import qs.modules.polkit
+import qs.modules.notification
 
 ShellRoot {
   readonly property var _niri: Niri
@@ -14,4 +15,5 @@ ShellRoot {
   Launcher {}
   Bar {}
   Polkit {}
+  Notification {}
 }

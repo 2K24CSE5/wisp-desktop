@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Layouts
 import Quickshell
 import Quickshell.Io
+import Quickshell.Wayland
 import qs.configs
 import qs.services
 import qs.components
@@ -79,7 +80,7 @@ Scope {
       required property var modelData
       readonly property real frameInset: 0
 
-      // TOP-LEFT WORKSPACE PANEL WINDOW
+      // TOP BAR PANEL WINDOW (Workspaces & Notifications)
       PanelWindow {
         id: topBarWindow
         screen: screenScope.modelData
@@ -89,22 +90,31 @@ Scope {
         anchors {
           top: true
           left: true
+          right: true
         }
 
         margins {
           top: 0
           left: screenScope.frameInset
+          right: screenScope.frameInset
         }
 
-        implicitWidth: 320
         implicitHeight: 58 + screenScope.frameInset
         color: "transparent"
         exclusionMode: ExclusionMode.Ignore
 
         mask: Region {
-          item: topLeftTab
+          regions: [
+            Region {
+              item: topLeftTab
+            },
+            Region {
+              item: topRightTab
+            }
+          ]
         }
 
+        // TOP-LEFT CORNER TAB: Workspaces
         DockedCornerTab {
           id: topLeftTab
           anchors.top: parent.top
@@ -113,45 +123,124 @@ Scope {
           verticalEdge: "top"
           frameInset: screenScope.frameInset
           forceExpanded: NiriService.overviewOpen
-          collapsedWidthRatio: 0.65
 
           RowLayout {
-            spacing: 6
+            spacing: 7
 
             Repeater {
               model: topBarWindow.screenWorkspaces
 
               Rectangle {
+                id: wsPill
                 required property var modelData
                 readonly property bool isFocused: Boolean(modelData.is_focused)
                 readonly property bool isOccupied: modelData.active_window_id !== null && modelData.active_window_id !== undefined
 
-                Layout.preferredWidth: isFocused ? 22 : (isOccupied ? 10 : 7)
-                Layout.preferredHeight: 7
-                radius: 3.5
-                color: isFocused ? Color.primary : (isOccupied ? Color.text : Color.subtle)
-                opacity: isFocused ? 1.0 : (isOccupied ? 0.85 : 0.5)
+                Layout.preferredWidth: isFocused ? 30 : 12
+                Layout.preferredHeight: 12
+                radius: height / 2
+                color: {
+                  if (isFocused)
+                    return Color.primary;
+                  if (wsMouse.containsMouse)
+                    return Color.overlay;
+                  if (isOccupied)
+                    return Color.text;
+                  return Color.subtle;
+                }
+                opacity: isFocused ? 1.0 : (isOccupied ? 0.85 : (wsMouse.containsMouse ? 0.9 : 0.5))
+                scale: wsMouse.pressed ? 0.92 : 1.0
 
                 Behavior on Layout.preferredWidth {
                   NumberAnimation {
-                    duration: 160
+                    duration: 200
                     easing.type: Easing.OutCubic
                   }
                 }
 
                 Behavior on color {
                   ColorAnimation {
+                    duration: 150
+                  }
+                }
+
+                Behavior on opacity {
+                  NumberAnimation {
+                    duration: 150
+                  }
+                }
+
+                Behavior on scale {
+                  NumberAnimation {
                     duration: 140
+                    easing.type: Easing.OutQuad
                   }
                 }
 
                 MouseArea {
+                  id: wsMouse
                   anchors.fill: parent
                   anchors.margins: -3
+                  hoverEnabled: true
                   cursorShape: Qt.PointingHandCursor
                   onClicked: NiriService.focusWorkspace(modelData.idx)
                 }
               }
+            }
+          }
+
+          WheelHandler {
+            acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+            onWheel: event => {
+              if (event.angleDelta.y > 0) {
+                NiriService.focusPreviousWorkspace();
+              } else if (event.angleDelta.y < 0) {
+                NiriService.focusNextWorkspace();
+              }
+            }
+          }
+        }
+
+        // TOP-RIGHT CORNER TAB: Notifications
+        DockedCornerTab {
+          id: topRightTab
+          anchors.top: parent.top
+          anchors.right: parent.right
+          edge: "right"
+          verticalEdge: "top"
+          frameInset: screenScope.frameInset
+          forceExpanded: NiriService.overviewOpen || NotificationService.centerOpen
+
+          Item {
+            implicitWidth: 20
+            implicitHeight: 20
+
+            Text {
+              anchors.centerIn: parent
+              text: NotificationService.doNotDisturb ? "notifications_off" : "notifications"
+              font.family: Config.iconFont
+              font.pixelSize: 18
+              color: NotificationService.doNotDisturb ? Color.muted : Color.text
+            }
+
+            // Unread badge dot
+            Rectangle {
+              visible: NotificationService.unreadCount > 0 && !NotificationService.doNotDisturb
+              width: 6
+              height: 6
+              radius: 3
+              color: Color.error
+              anchors.top: parent.top
+              anchors.right: parent.right
+              anchors.topMargin: 1
+              anchors.rightMargin: 1
+            }
+
+            MouseArea {
+              anchors.fill: parent
+              anchors.margins: -6
+              cursorShape: Qt.PointingHandCursor
+              onClicked: NotificationService.toggleCenter()
             }
           }
         }
@@ -198,7 +287,6 @@ Scope {
           verticalEdge: "bottom"
           frameInset: screenScope.frameInset
           forceExpanded: NiriService.overviewOpen
-          collapsedWidthRatio: 0.55
 
           RowLayout {
             spacing: 8
@@ -253,7 +341,6 @@ Scope {
           verticalEdge: "bottom"
           frameInset: screenScope.frameInset
           forceExpanded: NiriService.overviewOpen
-          collapsedWidthRatio: 0.6
 
           readonly property color batAccentColor: {
             if (root.batCharging)

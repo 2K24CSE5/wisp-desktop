@@ -13,6 +13,14 @@ Singleton {
     Quickshell.execDetached(["niri", "msg", "action", "focus-workspace", String(idx)]);
   }
 
+  function focusNextWorkspace() {
+    Quickshell.execDetached(["niri", "msg", "action", "focus-workspace-down"]);
+  }
+
+  function focusPreviousWorkspace() {
+    Quickshell.execDetached(["niri", "msg", "action", "focus-workspace-up"]);
+  }
+
   function handleEvent(line) {
     const trimmed = line.trim();
     if (!trimmed)
@@ -29,15 +37,19 @@ Singleton {
       } else if (ev.WorkspaceActivated !== undefined) {
         const activeId = ev.WorkspaceActivated.id;
         const focused = Boolean(ev.WorkspaceActivated.focused);
+        const target = root.workspaces.find(w => w.id === activeId);
+        const targetOutput = target ? target.output : null;
+
         root.workspaces = root.workspaces.map(ws => {
           const copy = Object.assign({}, ws);
           if (ws.id === activeId) {
             copy.is_active = true;
             if (focused)
               copy.is_focused = true;
-          } else if (focused) {
-            copy.is_focused = false;
-            if (ws.output === copy.output)
+          } else {
+            if (focused)
+              copy.is_focused = false;
+            if (targetOutput && ws.output === targetOutput)
               copy.is_active = false;
           }
           return copy;

@@ -16,8 +16,8 @@ Scope {
       required property var modelData
       screen: modelData
 
-      readonly property real targetInset: NiriService.overviewOpen ? WallpaperService.overviewInsetFor(modelData) : WallpaperService.initialInsetFor(modelData)
-      readonly property real targetRadius: NiriService.overviewOpen ? WallpaperService.overviewRadiusFor(modelData) : WallpaperService.initialRadiusFor(modelData)
+      readonly property real targetInset: NiriService.overviewOpen ? WallpaperService.overviewInsetFor(modelData) : 0
+      readonly property real targetRadius: NiriService.overviewOpen ? WallpaperService.overviewRadiusFor(modelData) : 0
 
       WlrLayershell.layer: WlrLayer.Background
       WlrLayershell.namespace: "wisp-wallpaper"

@@ -138,7 +138,7 @@ show_help() {
   cat <<'EOF'
 Wisp Desktop installer
 
-Usage: ./scripts/installation/install.sh [OPTIONS]
+Usage: ./scripts/install.sh [OPTIONS]
 
 Options:
   --skip-packages  Do not install system packages or fonts

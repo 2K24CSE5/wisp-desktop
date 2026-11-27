@@ -13,22 +13,12 @@ Singleton {
 
   // --- Resolution-Adaptive Overview & Resting Geometry ---
   readonly property real baseScreenHeight: 1080.0
-  readonly property real baseInitialInset: 0
-  readonly property real baseInitialRadius: 0
   readonly property real baseOverviewInset: 60.0
   readonly property real baseOverviewRadius: 24.0
 
   function uiScaleFor(screen): real {
     const h = (screen && screen.height > 0) ? screen.height : baseScreenHeight;
     return Math.max(0.65, Math.min(2.5, h / baseScreenHeight));
-  }
-
-  function initialInsetFor(screen): real {
-    return Math.round(baseInitialInset * uiScaleFor(screen));
-  }
-
-  function initialRadiusFor(screen): real {
-    return Math.round(baseInitialRadius * uiScaleFor(screen));
   }
 
   function overviewInsetFor(screen): real {
