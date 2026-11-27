@@ -11,6 +11,35 @@ Singleton {
   readonly property string currentWallpaper: Paths.toFileUrl(Config.wallpaper)
   property string queuedPath: ""
 
+  // --- Resolution-Adaptive Overview & Resting Geometry ---
+  readonly property real baseScreenHeight: 1080.0
+  readonly property real baseInitialInset: 8.0
+  readonly property real baseInitialRadius: 12.0
+  readonly property real baseOverviewInset: 60.0
+  readonly property real baseOverviewRadius: 36.0
+
+  function uiScaleFor(screen): real {
+    const h = (screen && screen.height > 0) ? screen.height : baseScreenHeight;
+    return Math.max(0.65, Math.min(2.5, h / baseScreenHeight));
+  }
+
+  function initialInsetFor(screen): real {
+    return Math.round(baseInitialInset * uiScaleFor(screen));
+  }
+
+  function initialRadiusFor(screen): real {
+    return Math.round(baseInitialRadius * uiScaleFor(screen));
+  }
+
+  function overviewInsetFor(screen): real {
+    return Math.round(baseOverviewInset * uiScaleFor(screen));
+  }
+
+  function overviewRadiusFor(screen): real {
+    return Math.round(baseOverviewRadius * uiScaleFor(screen));
+  }
+
+  // --- Wallpaper Persistence & Matugen Pipeline ---
   function applyWallpaper(destPath: string): void {
     if (Config.wallpaper !== destPath) {
       Config.saveSettings(Object.assign({}, Config.settings, {

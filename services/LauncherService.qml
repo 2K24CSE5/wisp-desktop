@@ -14,6 +14,12 @@ Singleton {
   property var allApps: []
   property point lastPointerPosition: Qt.point(-1, -1)
 
+  readonly property int resultCount: filteredApps.length
+  readonly property bool hasQuery: searchQuery.length > 0
+  readonly property bool hasResults: filteredApps.length > 0
+
+  signal scrollToSelected(int index)
+
   // --- IPC Endpoint ---
   IpcHandler {
     target: "launcher"
@@ -34,7 +40,7 @@ Singleton {
       if (!root.isOpen) {
         root.open();
       }
-      root.searchQuery = query;
+      root.updateSearch(query);
     }
   }
 
@@ -48,30 +54,44 @@ Singleton {
   }
 
   // --- Lifecycle ---
-  function open() {
+  function open(): void {
     refreshApps();
     searchQuery = "";
     selectedIndex = 0;
     lastPointerPosition = Qt.point(-1, -1);
     filterApps();
     isOpen = true;
+    scrollToSelected(0);
   }
 
-  function close() {
+  function close(): void {
     isOpen = false;
     searchQuery = "";
     selectedIndex = 0;
   }
 
-  function toggle() {
+  function toggle(): void {
     if (isOpen)
       close();
     else
       open();
   }
 
+  // --- Search & Query State ---
+  function updateSearch(query: string): void {
+    if (searchQuery !== query) {
+      searchQuery = query;
+    }
+  }
+
+  function clearSearch(): void {
+    searchQuery = "";
+    selectedIndex = 0;
+    scrollToSelected(0);
+  }
+
   // --- Application Indexing & Filtering ---
-  function refreshApps() {
+  function refreshApps(): void {
     const entries = DesktopEntries.applications.values || [];
     const list = [];
     for (let i = 0; i < entries.length; i++) {
@@ -87,9 +107,10 @@ Singleton {
   onSearchQueryChanged: {
     selectedIndex = 0;
     filterApps();
+    scrollToSelected(0);
   }
 
-  function filterApps() {
+  function filterApps(): void {
     const q = searchQuery.trim().toLowerCase();
     if (q === "") {
       filteredApps = allApps;
@@ -128,35 +149,60 @@ Singleton {
     filteredApps = results.map(item => item.app);
   }
 
-  // --- Keyboard Navigation ---
-  function moveSelectionDown() {
+  // --- Input & Navigation ---
+  function handleKeyEvent(event): void {
+    switch (event.key) {
+    case Qt.Key_Down:
+      moveSelectionDown();
+      event.accepted = true;
+      break;
+    case Qt.Key_Up:
+      moveSelectionUp();
+      event.accepted = true;
+      break;
+    case Qt.Key_Return:
+    case Qt.Key_Enter:
+      launchSelected();
+      event.accepted = true;
+      break;
+    case Qt.Key_Escape:
+      close();
+      event.accepted = true;
+      break;
+    }
+  }
+
+  function moveSelectionDown(): void {
     if (filteredApps.length === 0)
       return;
     selectedIndex = (selectedIndex + 1) % filteredApps.length;
+    scrollToSelected(selectedIndex);
   }
 
-  function moveSelectionUp() {
+  function moveSelectionUp(): void {
     if (filteredApps.length === 0)
       return;
     selectedIndex = (selectedIndex - 1 + filteredApps.length) % filteredApps.length;
+    scrollToSelected(selectedIndex);
   }
 
-  function updateMouseSelection(index, position) {
-    const moved = lastPointerPosition.x >= 0 && (position.x !== lastPointerPosition.x || position.y !== lastPointerPosition.y);
-    lastPointerPosition = Qt.point(position.x, position.y);
+  function handleItemPointer(index: int, mouseArea, listItem): void {
+    const pos = mouseArea.mapToItem(listItem, mouseArea.mouseX, mouseArea.mouseY);
+    const moved = lastPointerPosition.x >= 0 && (pos.x !== lastPointerPosition.x || pos.y !== lastPointerPosition.y);
+    lastPointerPosition = Qt.point(pos.x, pos.y);
     if (moved)
       selectedIndex = index;
   }
 
   // --- Execution ---
-  function launchSelected() {
+  function launchSelected(): void {
     if (filteredApps.length === 0 || selectedIndex < 0 || selectedIndex >= filteredApps.length) {
       return;
     }
     launchApp(filteredApps[selectedIndex]);
   }
 
-  function launchApp(app) {
+  function launchApp(app): void {
     if (!app)
       return;
     app.execute();

@@ -15,7 +15,7 @@ Item {
 
     anchors.fill: parent
     fillMode: root.fillMode
-    sourceSize: Qt.size(root.width, root.height)
+    sourceSize: Qt.size(Screen.width, Screen.height)
     asynchronous: true
     cache: true
     mipmap: true

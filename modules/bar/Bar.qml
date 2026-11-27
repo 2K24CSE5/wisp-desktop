@@ -1,8 +1,10 @@
 import QtQuick
 import QtQuick.Layouts
+import QtQuick.Shapes
 import Quickshell
 import Quickshell.Io
 import qs.configs
+import qs.services
 
 Scope {
   id: root
@@ -69,17 +71,15 @@ Scope {
     }
   }
 
-  SystemClock {
-    id: clock
-    precision: SystemClock.Seconds
-  }
-
   Variants {
     model: Quickshell.screens
 
     PanelWindow {
+      id: barWindow
       required property var modelData
       screen: modelData
+
+      readonly property real frameInset: WallpaperService.initialInsetFor(modelData)
 
       anchors {
         left: true
@@ -88,246 +88,437 @@ Scope {
       }
 
       margins {
-        left: 4
-        right: 4
-        bottom: 4
+        left: frameInset
+        right: frameInset
+        bottom: 0
       }
 
-      implicitHeight: 46
+      implicitHeight: 58 + frameInset
       color: "transparent"
-      exclusionMode: ExclusionMode.Auto
+      exclusionMode: ExclusionMode.Ignore
 
-      RowLayout {
-        anchors.fill: parent
-        spacing: 6
+      // LEFT CORNER TAB: Clock & Date
+      Rectangle {
+        id: clockTab
+        readonly property bool expanded: NiriService.overviewOpen || clockHover.hovered
+        readonly property real fullWidth: clockRow.implicitWidth + 28
+        readonly property real lineWidth: Math.round(fullWidth * 0.55)
+        property real earRadius: expanded ? 14 : 0
+        property color fillColor: expanded ? Color.background : Color.subtle
 
-        // LEFT PILL: Clock & Date
-        Rectangle {
-          id: clockPill
-          Layout.preferredHeight: 44
-          Layout.preferredWidth: clockRow.implicitWidth + 24
-          radius: 16
-          color: Color.background
+        anchors.left: parent.left
+        anchors.bottom: parent.bottom
+        height: expanded ? (42 + barWindow.frameInset) : 4
+        width: expanded ? fullWidth : lineWidth
+        topLeftRadius: 0
+        topRightRadius: expanded ? 14 : 2
+        bottomLeftRadius: 0
+        bottomRightRadius: 0
+        color: fillColor
+        clip: true
 
-          RowLayout {
-            id: clockRow
-            anchors.centerIn: parent
-            spacing: 8
+        Behavior on earRadius {
+          NumberAnimation {
+            duration: 180
+            easing.type: Easing.OutCubic
+          }
+        }
 
-            ColumnLayout {
-              spacing: -1
-              Layout.alignment: Qt.AlignVCenter
+        Behavior on fillColor {
+          ColorAnimation {
+            duration: 150
+          }
+        }
 
-              Text {
-                text: Qt.formatDateTime(clock.date, "dddd")
-                font.family: Config.textFont
-                font.pixelSize: 9
-                font.bold: true
-                color: Color.primary
-                lineHeight: 1.0
-              }
+        Behavior on height {
+          NumberAnimation {
+            duration: 180
+            easing.type: Easing.OutCubic
+          }
+        }
 
-              Text {
-                text: Qt.formatDateTime(clock.date, "MMM d")
-                font.family: Config.textFont
-                font.pixelSize: 10
-                color: Color.text
-                lineHeight: 1.0
-              }
+        Behavior on width {
+          NumberAnimation {
+            duration: 180
+            easing.type: Easing.OutCubic
+          }
+        }
+
+        Behavior on topRightRadius {
+          NumberAnimation {
+            duration: 180
+            easing.type: Easing.OutCubic
+          }
+        }
+
+        HoverHandler {
+          id: clockHover
+        }
+
+        RowLayout {
+          id: clockRow
+          anchors.horizontalCenter: parent.horizontalCenter
+          anchors.verticalCenter: parent.verticalCenter
+          anchors.verticalCenterOffset: clockTab.expanded ? -(barWindow.frameInset * 0.5) : 0
+          spacing: 8
+          opacity: clockTab.expanded ? 1.0 : 0.0
+
+          Behavior on opacity {
+            NumberAnimation {
+              duration: 140
             }
+          }
 
-            Rectangle {
-              implicitWidth: 1
-              implicitHeight: 14
-              color: Color.subtle
-              opacity: 0.8
-              Layout.alignment: Qt.AlignVCenter
+          ColumnLayout {
+            spacing: -1
+            Layout.alignment: Qt.AlignVCenter
+
+            Text {
+              text: DateTimeService.dayName
+              font.family: Config.textFont
+              font.pixelSize: 9
+              font.bold: true
+              color: Color.primary
+              lineHeight: 1.0
             }
 
             Text {
-              text: Qt.formatDateTime(clock.date, "hh:mm AP")
+              text: DateTimeService.shortDate
               font.family: Config.textFont
-              font.pixelSize: 13
-              font.bold: true
+              font.pixelSize: 10
               color: Color.text
-              verticalAlignment: Text.AlignVCenter
+              lineHeight: 1.0
             }
+          }
+
+          Rectangle {
+            implicitWidth: 1
+            implicitHeight: 14
+            color: Color.subtle
+            opacity: 0.8
+            Layout.alignment: Qt.AlignVCenter
+          }
+
+          Text {
+            text: DateTimeService.time12h
+            font.family: Config.textFont
+            font.pixelSize: 13
+            font.bold: true
+            color: Color.text
+            verticalAlignment: Text.AlignVCenter
+          }
+        }
+      }
+
+      // Clock top-left concave curve (flares upward along left wallpaper frame)
+      Shape {
+        anchors.left: clockTab.left
+        anchors.bottom: clockTab.top
+        anchors.bottomMargin: -1
+        width: clockTab.earRadius
+        height: clockTab.earRadius + 1
+        visible: clockTab.earRadius > 0.2
+        preferredRendererType: Shape.CurveRenderer
+
+        ShapePath {
+          strokeWidth: 0
+          fillColor: clockTab.fillColor
+          startX: 0
+          startY: 0
+          PathArc {
+            x: clockTab.earRadius
+            y: clockTab.earRadius
+            radiusX: clockTab.earRadius
+            radiusY: clockTab.earRadius
+            direction: PathArc.Counterclockwise
+          }
+          PathLine {
+            x: clockTab.earRadius
+            y: clockTab.earRadius + 1
+          }
+          PathLine {
+            x: 0
+            y: clockTab.earRadius + 1
+          }
+          PathLine {
+            x: 0
+            y: 0
+          }
+        }
+      }
+
+      // Clock bottom-right concave curve (sits flush on top of the bottom frame)
+      Shape {
+        anchors.left: clockTab.right
+        anchors.leftMargin: -1
+        anchors.bottom: clockTab.bottom
+        anchors.bottomMargin: barWindow.frameInset
+        width: clockTab.earRadius + 1
+        height: clockTab.earRadius
+        visible: clockTab.earRadius > 0.2
+        preferredRendererType: Shape.CurveRenderer
+
+        ShapePath {
+          strokeWidth: 0
+          fillColor: clockTab.fillColor
+          startX: 1
+          startY: 0
+          PathArc {
+            x: clockTab.earRadius + 1
+            y: clockTab.earRadius
+            radiusX: clockTab.earRadius
+            radiusY: clockTab.earRadius
+            direction: PathArc.Counterclockwise
+          }
+          PathLine {
+            x: 0
+            y: clockTab.earRadius
+          }
+          PathLine {
+            x: 0
+            y: 0
+          }
+          PathLine {
+            x: 1
+            y: 0
+          }
+        }
+      }
+
+      // RIGHT CORNER TAB: Battery + Wi-Fi/Bluetooth (mirrored symmetry with clockTab)
+      Rectangle {
+        id: rightTab
+        readonly property bool expanded: NiriService.overviewOpen || rightHover.hovered
+        readonly property real fullWidth: rightRow.implicitWidth + 28
+        readonly property real lineWidth: Math.round(fullWidth * 0.6)
+        property real earRadius: expanded ? 14 : 0
+        property color fillColor: expanded ? Color.background : (root.wifiConnected ? Color.subtle : Color.error)
+
+        readonly property color batAccentColor: {
+          if (root.batCharging)
+            return Color.primary;
+          if (root.batPercentage <= 20)
+            return Color.error;
+          if (root.batPercentage <= 35)
+            return Color.warning;
+          return Color.primary;
+        }
+
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        height: expanded ? (42 + barWindow.frameInset) : 4
+        width: expanded ? fullWidth : lineWidth
+        topLeftRadius: expanded ? 14 : 2
+        topRightRadius: 0
+        bottomLeftRadius: 0
+        bottomRightRadius: 0
+        color: fillColor
+        clip: true
+
+        Behavior on earRadius {
+          NumberAnimation {
+            duration: 180
+            easing.type: Easing.OutCubic
           }
         }
 
-        // Spacer pushing the right pills to the far right edge
-        Item {
-          Layout.fillWidth: true
+        Behavior on fillColor {
+          ColorAnimation {
+            duration: 150
+          }
         }
 
-        // RIGHT GROUP: Battery + Wi-Fi/Bluetooth (2px gap, 4px inner radius)
+        Behavior on height {
+          NumberAnimation {
+            duration: 180
+            easing.type: Easing.OutCubic
+          }
+        }
+
+        Behavior on width {
+          NumberAnimation {
+            duration: 180
+            easing.type: Easing.OutCubic
+          }
+        }
+
+        Behavior on topLeftRadius {
+          NumberAnimation {
+            duration: 180
+            easing.type: Easing.OutCubic
+          }
+        }
+
+        HoverHandler {
+          id: rightHover
+        }
+
         RowLayout {
-          spacing: 2
+          id: rightRow
+          anchors.horizontalCenter: parent.horizontalCenter
+          anchors.verticalCenter: parent.verticalCenter
+          anchors.verticalCenterOffset: rightTab.expanded ? -(barWindow.frameInset * 0.5) : 0
+          spacing: 12
+          opacity: rightTab.expanded ? 1.0 : 0.0
 
-          // RIGHT PILL 1: Battery
-          Rectangle {
-            id: batPill
+          Behavior on opacity {
+            NumberAnimation {
+              duration: 140
+            }
+          }
+
+          // Battery Section
+          ColumnLayout {
             visible: root.hasBattery
-            Layout.preferredHeight: 44
-            Layout.preferredWidth: batCol.implicitWidth + 24
-            topLeftRadius: 16
-            bottomLeftRadius: 16
-            topRightRadius: 4
-            bottomRightRadius: 4
-            color: batMouse.containsMouse ? Color.surface : Color.background
+            spacing: -2
+            Layout.alignment: Qt.AlignVCenter
 
-            Behavior on color {
-              ColorAnimation {
-                duration: 150
-              }
-            }
+            RowLayout {
+              spacing: 2
+              Layout.alignment: Qt.AlignRight
 
-            readonly property color accentColor: {
-              if (root.batCharging)
-                return Color.primary;
-              if (root.batPercentage <= 20)
-                return Color.error;
-              if (root.batPercentage <= 35)
-                return Color.warning;
-              return Color.primary;
-            }
-
-            ColumnLayout {
-              id: batCol
-              anchors.centerIn: parent
-              spacing: -2
-
-              RowLayout {
-                spacing: 2
-                Layout.alignment: Qt.AlignRight
-
-                Text {
-                  visible: root.batCharging
-                  text: "bolt"
-                  font.family: Config.iconFont
-                  font.pixelSize: 9
-                  color: batPill.accentColor
-                  verticalAlignment: Text.AlignVCenter
-                }
-
-                Text {
-                  text: root.batCharging ? "PWR" : "BAT"
-                  font.family: Config.textFont
-                  font.pixelSize: 8
-                  font.bold: true
-                  color: batPill.accentColor
-                  lineHeight: 1.0
-                  verticalAlignment: Text.AlignVCenter
-                }
+              Text {
+                visible: root.batCharging
+                text: "bolt"
+                font.family: Config.iconFont
+                font.pixelSize: 9
+                color: rightTab.batAccentColor
+                verticalAlignment: Text.AlignVCenter
               }
 
               Text {
-                text: root.batPercentage + "%"
+                text: root.batCharging ? "PWR" : "BAT"
                 font.family: Config.textFont
-                font.pixelSize: 11
+                font.pixelSize: 8
                 font.bold: true
-                color: Color.text
+                color: rightTab.batAccentColor
                 lineHeight: 1.0
-                Layout.alignment: Qt.AlignLeft
+                verticalAlignment: Text.AlignVCenter
               }
             }
 
-            MouseArea {
-              id: batMouse
-              anchors.fill: parent
-              hoverEnabled: true
+            Text {
+              text: root.batPercentage + "%"
+              font.family: Config.textFont
+              font.pixelSize: 11
+              font.bold: true
+              color: Color.text
+              lineHeight: 1.0
+              Layout.alignment: Qt.AlignLeft
             }
           }
 
-          // RIGHT PILL 2: Wi-Fi & Bluetooth Status
+          // Subtle divider between Battery and Connectivity
           Rectangle {
-            id: statusPill
-            Layout.preferredHeight: 44
-            Layout.preferredWidth: statusRow.implicitWidth + 28
-            topLeftRadius: root.hasBattery ? 4 : 16
-            bottomLeftRadius: root.hasBattery ? 4 : 16
-            topRightRadius: 16
-            bottomRightRadius: 16
-            color: statusMouse.containsMouse ? Color.surface : Color.background
+            visible: root.hasBattery
+            implicitWidth: 1
+            implicitHeight: 16
+            color: Color.subtle
+            opacity: 0.7
+            Layout.alignment: Qt.AlignVCenter
+          }
 
-            Behavior on color {
-              ColorAnimation {
-                duration: 150
-              }
+          // Wi-Fi Icon
+          Text {
+            text: root.wifiConnected ? "wifi" : "wifi_off"
+            font.family: Config.iconFont
+            font.pixelSize: 18
+            color: root.wifiConnected ? Color.primary : Color.error
+            Layout.alignment: Qt.AlignVCenter
+          }
+
+          // Bluetooth Icon
+          Text {
+            text: {
+              if (root.btConnected)
+                return "bluetooth_connected";
+              if (root.btEnabled)
+                return "bluetooth";
+              return "bluetooth_disabled";
             }
-
-            RowLayout {
-              id: statusRow
-              anchors.centerIn: parent
-              spacing: 10
-
-              // Wi-Fi Section
-              RowLayout {
-                spacing: 6
-
-                Text {
-                  text: root.wifiConnected ? "wifi" : "wifi_off"
-                  font.family: Config.iconFont
-                  font.pixelSize: 18
-                  color: root.wifiConnected ? Color.primary : Color.error
-                }
-
-                Text {
-                  visible: statusMouse.containsMouse && root.wifiSsid !== ""
-                  text: root.wifiSsid
-                  font.family: Config.textFont
-                  font.pixelSize: 12
-                  font.weight: Font.Medium
-                  color: Color.text
-                }
-              }
-
-              // Bluetooth Section
-              RowLayout {
-                spacing: 6
-
-                Text {
-                  text: {
-                    if (root.btConnected)
-                      return "bluetooth_connected";
-                    if (root.btEnabled)
-                      return "bluetooth";
-                    return "bluetooth_disabled";
-                  }
-                  font.family: Config.iconFont
-                  font.pixelSize: 18
-                  color: {
-                    if (!root.btEnabled)
-                      return Color.muted;
-                    return root.btConnected ? Color.primary : Color.text;
-                  }
-                }
-
-                Text {
-                  visible: statusMouse.containsMouse && root.btDevice !== ""
-                  text: root.btDevice
-                  font.family: Config.textFont
-                  font.pixelSize: 12
-                  font.weight: Font.Medium
-                  color: Color.text
-                }
-              }
+            font.family: Config.iconFont
+            font.pixelSize: 18
+            color: {
+              if (!root.btEnabled)
+                return Color.muted;
+              return root.btConnected ? Color.primary : Color.text;
             }
+            Layout.alignment: Qt.AlignVCenter
+          }
+        }
+      }
 
-            MouseArea {
-              id: statusMouse
-              anchors.fill: parent
-              hoverEnabled: true
-              cursorShape: Qt.PointingHandCursor
-              acceptedButtons: Qt.LeftButton | Qt.RightButton
-              onClicked: mouse => {
-                if (mouse.button === Qt.RightButton) {
-                  Quickshell.execDetached(["blueman-manager"]);
-                } else {
-                  Quickshell.execDetached(["nm-connection-editor"]);
-                }
-              }
-            }
+      // Right tab top-right concave curve (flares upward along right wallpaper frame)
+      Shape {
+        anchors.right: rightTab.right
+        anchors.bottom: rightTab.top
+        anchors.bottomMargin: -1
+        width: rightTab.earRadius
+        height: rightTab.earRadius + 1
+        visible: rightTab.earRadius > 0.2
+        preferredRendererType: Shape.CurveRenderer
+
+        ShapePath {
+          strokeWidth: 0
+          fillColor: rightTab.fillColor
+          startX: rightTab.earRadius
+          startY: 0
+          PathArc {
+            x: 0
+            y: rightTab.earRadius
+            radiusX: rightTab.earRadius
+            radiusY: rightTab.earRadius
+            direction: PathArc.Clockwise
+          }
+          PathLine {
+            x: 0
+            y: rightTab.earRadius + 1
+          }
+          PathLine {
+            x: rightTab.earRadius
+            y: rightTab.earRadius + 1
+          }
+          PathLine {
+            x: rightTab.earRadius
+            y: 0
+          }
+        }
+      }
+
+      // Right tab bottom-left concave curve (sits flush on top of the bottom frame)
+      Shape {
+        anchors.right: rightTab.left
+        anchors.rightMargin: -1
+        anchors.bottom: rightTab.bottom
+        anchors.bottomMargin: barWindow.frameInset
+        width: rightTab.earRadius + 1
+        height: rightTab.earRadius
+        visible: rightTab.earRadius > 0.2
+        preferredRendererType: Shape.CurveRenderer
+
+        ShapePath {
+          strokeWidth: 0
+          fillColor: rightTab.fillColor
+          startX: rightTab.earRadius
+          startY: 0
+          PathArc {
+            x: 0
+            y: rightTab.earRadius
+            radiusX: rightTab.earRadius
+            radiusY: rightTab.earRadius
+            direction: PathArc.Clockwise
+          }
+          PathLine {
+            x: rightTab.earRadius + 1
+            y: rightTab.earRadius
+          }
+          PathLine {
+            x: rightTab.earRadius + 1
+            y: 0
+          }
+          PathLine {
+            x: rightTab.earRadius
+            y: 0
           }
         }
       }
