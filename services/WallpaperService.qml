@@ -8,7 +8,7 @@ import qs.services
 Singleton {
   id: root
 
-  readonly property string currentWallpaper: Paths.toFileUrl(Config.wallpaper)
+  readonly property string currentWallpaper: Directory.toFileUrl(Config.wallpaper)
   property string queuedPath: ""
 
   // --- Resolution-Adaptive Overview & Resting Geometry ---
@@ -60,8 +60,8 @@ Singleton {
   }
 
   function setWallpaper(path: string): void {
-    const sourcePath = Paths.expand(path);
-    if (!sourcePath || !Paths.ready)
+    const sourcePath = Directory.expand(path);
+    if (!sourcePath || !Directory.ready)
       return;
 
     if (copyProcess.running) {
@@ -78,11 +78,11 @@ Singleton {
     const dotIndex = fileName.lastIndexOf(".");
     const ext = dotIndex !== -1 ? fileName.slice(dotIndex) : "";
     const stamp = Date.now();
-    const destPath = `${Paths.cacheDir}/wallpaper-${stamp}${ext}`;
-    const tempPath = `${Paths.cacheDir}/.wallpaper.tmp-${stamp}${ext}`;
+    const destPath = `${Directory.cacheDir}/wallpaper-${stamp}${ext}`;
+    const tempPath = `${Directory.cacheDir}/.wallpaper.tmp-${stamp}${ext}`;
 
     copyProcess.destPath = destPath;
-    copyProcess.command = ["sh", "-c", 'cp -f "$1" "$2" && mv -f "$2" "$4" && find "$3" -maxdepth 1 -name "wallpaper-*" ! -name "$(basename "$4")" -delete', "_", sourcePath, tempPath, Paths.cacheDir, destPath];
+    copyProcess.command = ["sh", "-c", 'cp -f "$1" "$2" && mv -f "$2" "$4" && find "$3" -maxdepth 1 -name "wallpaper-*" ! -name "$(basename "$4")" -delete', "_", sourcePath, tempPath, Directory.cacheDir, destPath];
     copyProcess.running = true;
   }
 }

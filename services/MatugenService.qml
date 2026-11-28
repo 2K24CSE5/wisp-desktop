@@ -12,8 +12,8 @@ Singleton {
   property string stderrBuf: ""
 
   function generateColors(imagePath: string): void {
-    const cleanPath = Paths.expand(imagePath);
-    if (!cleanPath || !Paths.ready)
+    const cleanPath = Directory.expand(imagePath);
+    if (!cleanPath || !Directory.ready)
       return;
 
     if (matugenProcess.running) {
@@ -23,7 +23,7 @@ Singleton {
 
     stdoutBuf = "";
     stderrBuf = "";
-    matugenProcess.command = ["matugen", "image", cleanPath, "--config", Paths.homeDir + "/.config/quickshell/wisp-desktop/matugen/config.toml", "--source-color-index", "0", "--json", "hex"];
+    matugenProcess.command = ["matugen", "image", cleanPath, "--config", Directory.homeDir + "/.config/quickshell/wisp-desktop/matugen/config.toml", "--source-color-index", "0", "--json", "hex"];
     matugenProcess.running = true;
   }
 
@@ -77,7 +77,7 @@ Singleton {
 
   FileView {
     id: colorsWriter
-    path: Paths.ready ? Paths.colorsFile : ""
+    path: Directory.ready ? Directory.colorsFile : ""
     printErrors: false
   }
 

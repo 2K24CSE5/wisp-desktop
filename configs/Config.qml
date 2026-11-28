@@ -29,7 +29,7 @@ Singleton {
   function saveSettings(newSettings): void {
     const merged = Object.assign({}, defaultSettings, newSettings);
     settings = merged;
-    if (Paths.ready) {
+    if (Directory.ready) {
       ignoreNextFileChange = true;
       settingsFile.setText(JSON.stringify(merged, null, 2));
     }
@@ -51,7 +51,7 @@ Singleton {
 
   FileView {
     id: settingsFile
-    path: Paths.ready ? Paths.settingsFile : ""
+    path: Directory.ready ? Directory.settingsFile : ""
     watchChanges: true
     printErrors: false
 

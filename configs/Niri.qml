@@ -74,7 +74,8 @@ window-rule {
 
 binds {
   Mod+T {spawn-sh "ghostty"; }
-  Mod+D { spawn-sh "quickshell -c wisp-desktop ipc call launcher toggle"; }
+  Mod+L { spawn-sh "quickshell -c wisp-desktop ipc call launcher toggle"; }
+  Mod+S { spawn-sh "quickshell -c wisp-desktop ipc call setting toggle"; }
   Mod+Q { close-window; }
   Mod+Left { focus-column-left; }
   Mod+Right { focus-column-right; }
@@ -114,7 +115,7 @@ binds {
 
   FileView {
     id: wispConfigFile
-    path: Paths.ready ? Paths.wispNiriFile : ""
+    path: Directory.ready ? Directory.wispNiriFile : ""
     watchChanges: true
     printErrors: false
 
@@ -143,7 +144,7 @@ binds {
 
   FileView {
     id: mainConfigFile
-    path: Paths.ready ? Paths.niriConfigFile : ""
+    path: Directory.ready ? Directory.niriConfigFile : ""
     printErrors: false
 
     onLoaded: {

@@ -66,7 +66,7 @@ Singleton {
 
   FileView {
     id: colorFile
-    path: Paths.ready ? Paths.colorsFile : ""
+    path: Directory.ready ? Directory.colorsFile : ""
     watchChanges: true
     printErrors: false
 

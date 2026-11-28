@@ -8,6 +8,45 @@ import qs.services
 Singleton {
   id: root
 
+  property bool uiOpen: false
+  property int activeTab: 0
+
+  readonly property var sections: [
+    {
+      id: "general",
+      icon: "tune",
+      label: "General"
+    },
+    {
+      id: "appearance",
+      icon: "palette",
+      label: "Appearance"
+    },
+    {
+      id: "system",
+      icon: "settings",
+      label: "System"
+    }
+  ]
+
+  function toggleUi(): void {
+    uiOpen = !uiOpen;
+  }
+
+  function openUi(): void {
+    uiOpen = true;
+  }
+
+  function closeUi(): void {
+    uiOpen = false;
+  }
+
+  function selectTab(index: int): void {
+    if (index >= 0 && index < sections.length) {
+      activeTab = index;
+    }
+  }
+
   function set(key: string, value): void {
     if (!(key in Config.defaultSettings)) {
       console.warn("Unknown setting key:", key);
@@ -53,7 +92,19 @@ Singleton {
   }
 
   property IpcHandler settingsIpc: IpcHandler {
-    target: "settings"
+    target: "setting"
+
+    function toggle(): void {
+      root.toggleUi();
+    }
+
+    function open(): void {
+      root.openUi();
+    }
+
+    function close(): void {
+      root.closeUi();
+    }
 
     function setWallpaper(path: string): void {
       WallpaperService.setWallpaper(path);

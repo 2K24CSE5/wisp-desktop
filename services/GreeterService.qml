@@ -76,7 +76,7 @@ Singleton {
     }
 
     Component.onCompleted: {
-      command = ["python3", Paths.greetdUserDiscovery];
+      command = ["python3", Directory.greetdUserDiscovery];
       running = true;
     }
   }
@@ -101,7 +101,7 @@ Singleton {
         service.availableSessions = [];
     }
     Component.onCompleted: {
-      command = ["python3", Paths.greetdSessionDiscovery];
+      command = ["python3", Directory.greetdSessionDiscovery];
       running = true;
     }
   }
@@ -177,7 +177,7 @@ Singleton {
     authProc.username = username;
 
     authProc.pendingSecret = secret;
-    authProc.command = ["python3", Paths.greetdAuthHelper, username, JSON.stringify(selectedSession.command), greetdSocket];
+    authProc.command = ["python3", Directory.greetdAuthHelper, username, JSON.stringify(selectedSession.command), greetdSocket];
     authProc.running = true;
   }
 
