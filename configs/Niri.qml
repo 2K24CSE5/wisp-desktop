@@ -49,6 +49,7 @@ recent-windows {
 }
 
 layout {
+  gaps 12
   background-color "transparent"
   focus-ring {
     off

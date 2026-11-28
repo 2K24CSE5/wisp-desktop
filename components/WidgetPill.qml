@@ -22,7 +22,7 @@ Rectangle {
   property string edge: "none" // "none" | "left" | "right" | "only"
 
   property real horizontalPadding: Math.round((grouped ? 4 : (inner ? 10 : 14)) * uiScale)
-  property real pillHeight: Math.round(44 * uiScale)
+  property real pillHeight: Math.round(40 * uiScale)
   property real outerRadius: Math.round(16 * uiScale)
   property real innerRadius: 4
   property real contentImplicitWidth: 0
