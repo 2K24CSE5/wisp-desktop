@@ -131,7 +131,7 @@ Modal {
     }
 
     // Reusable Momentum ListView
-    SmoothListView {
+    ListView {
       id: appList
       Layout.fillWidth: true
       Layout.fillHeight: true

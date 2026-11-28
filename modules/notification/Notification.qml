@@ -1,10 +1,8 @@
 import QtQuick
-import QtQuick.Shapes
 import Quickshell
 import Quickshell.Wayland
 import qs.configs
 import qs.services
-import qs.components
 
 Scope {
   Variants {
@@ -21,66 +19,21 @@ Scope {
       readonly property real rawScale: screenW > 0 && screenH > 0 ? Math.sqrt((screenW / 1440) * (screenH / 900)) : 1.0
       readonly property real uiScale: Math.max(0.85, Math.min(1.4, rawScale))
 
-      readonly property real earRadius: Math.round(14 * uiScale)
-      readonly property real bodyWidth: Math.round(430 * uiScale)
-      readonly property real liveHeight: NotificationService.centerOpen ? Math.min(Math.round(700 * uiScale), Math.max(Math.round(120 * uiScale), centerView.implicitHeight + Math.round(44 * uiScale))) : Math.min(Math.round(640 * uiScale), Math.max(Math.round(80 * uiScale), toastView.implicitHeight + Math.round(32 * uiScale)))
+      readonly property real topBarHeight: 40
+      readonly property real cardGapTop: 4
+      readonly property real cardMarginRight: 14
+      readonly property real bodyWidth: Math.round(420 * uiScale)
+      readonly property real liveHeight: NotificationService.centerOpen ? Math.min(Math.round(680 * uiScale), Math.max(Math.round(120 * uiScale), centerView.implicitHeight + Math.round(44 * uiScale))) : Math.min(Math.round(620 * uiScale), Math.max(Math.round(80 * uiScale), toastView.implicitHeight + Math.round(32 * uiScale)))
 
       property real cachedHeight: Math.round(120 * uiScale)
-      property bool shown: false
-      property bool closing: false
-      property bool centerSession: false
-      readonly property bool activeState: NotificationService.shouldShowWindow
 
       onLiveHeightChanged: {
-        if (activeState) {
+        if (NotificationService.shouldShowWindow) {
           cachedHeight = liveHeight;
         }
       }
 
-      onActiveStateChanged: {
-        if (activeState) {
-          centerSession = NotificationService.centerOpen;
-          cachedHeight = liveHeight;
-          closeTimer.stop();
-          closing = false;
-          shown = true;
-        } else {
-          closing = true;
-          shown = false;
-          closeTimer.restart();
-        }
-      }
-
-      Connections {
-        target: NotificationService
-        function onCenterOpenChanged() {
-          if (NotificationService.centerOpen) {
-            notifWindow.centerSession = true;
-          }
-        }
-      }
-
-      Component.onCompleted: {
-        if (activeState) {
-          centerSession = NotificationService.centerOpen;
-          cachedHeight = liveHeight;
-          shown = true;
-        }
-      }
-
-      Timer {
-        id: closeTimer
-        interval: 260
-        onTriggered: {
-          notifWindow.closing = false;
-          notifWindow.centerSession = false;
-          if (!NotificationService.hasPopups) {
-            toastView.clearAll();
-          }
-        }
-      }
-
-      visible: activeState || closing
+      visible: NotificationService.windowVisible
       color: "transparent"
       exclusionMode: ExclusionMode.Ignore
 
@@ -88,25 +41,24 @@ Scope {
       WlrLayershell.namespace: "wisp-notifications"
       WlrLayershell.keyboardFocus: (NotificationService.centerOpen && isPrimaryScreen) ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
 
-      // Full-screen anchors only during Notification Center sessions (never for passive toasts)
       anchors {
         top: true
         right: true
-        bottom: NotificationService.centerOpen || (closing && centerSession)
-        left: NotificationService.centerOpen || (closing && centerSession)
+        bottom: NotificationService.fullScreenMode
+        left: NotificationService.fullScreenMode
       }
 
       margins {
-        top: 0
-        right: 0
+        top: topBarHeight
+        right: NotificationService.fullScreenMode ? 0 : cardMarginRight
         bottom: 0
         left: 0
       }
 
-      implicitWidth: bodyWidth + earRadius
-      implicitHeight: cachedHeight + earRadius
+      implicitWidth: bodyWidth
+      implicitHeight: cachedHeight + cardGapTop
 
-      // Transparent Click-Outside Backdrop
+      // Click-outside backdrop below the top bar
       MouseArea {
         anchors.fill: parent
         visible: NotificationService.centerOpen
@@ -114,21 +66,26 @@ Scope {
         onClicked: NotificationService.closeCenter()
       }
 
-      // Docked Top-Right Expanding Container
+      // Floating Popup Container Below Top Widget Bar
       Rectangle {
-        id: dockBody
+        id: popupCard
         anchors.top: parent.top
         anchors.right: parent.right
-        width: notifWindow.shown ? notifWindow.bodyWidth : 48
-        height: notifWindow.shown ? notifWindow.cachedHeight : 42
-        opacity: notifWindow.shown ? 1.0 : 0.0
-        topLeftRadius: 0
-        topRightRadius: 0
-        bottomRightRadius: 0
-        bottomLeftRadius: notifWindow.shown ? Math.round(28 * notifWindow.uiScale) : 14
+        anchors.topMargin: notifWindow.cardGapTop
+        anchors.rightMargin: NotificationService.fullScreenMode ? notifWindow.cardMarginRight : 0
+
+        width: notifWindow.bodyWidth
+        height: NotificationService.windowShown ? notifWindow.cachedHeight : Math.round(48 * notifWindow.uiScale)
+        radius: Math.round(28 * notifWindow.uiScale)
         color: Color.background
+        border.width: 1
+        border.color: Color.overlay
         clip: true
         focus: NotificationService.centerOpen
+
+        opacity: NotificationService.windowShown ? 1.0 : 0.0
+        scale: NotificationService.windowShown ? 1.0 : 0.95
+        transformOrigin: Item.TopRight
 
         Keys.onEscapePressed: event => {
           if (NotificationService.centerOpen) {
@@ -137,43 +94,35 @@ Scope {
           }
         }
 
-        // Prevent clicks inside the notification panel from bubbling to the backdrop
         MouseArea {
           anchors.fill: parent
           acceptedButtons: Qt.AllButtons
         }
 
-        Behavior on width {
-          NumberAnimation {
-            duration: 240
-            easing.type: Easing.OutCubic
-          }
-        }
-
         Behavior on height {
           NumberAnimation {
-            duration: 240
-            easing.type: Easing.OutCubic
-          }
-        }
-
-        Behavior on bottomLeftRadius {
-          NumberAnimation {
-            duration: 220
+            duration: NotificationService.windowShown ? 200 : 150
             easing.type: Easing.OutCubic
           }
         }
 
         Behavior on opacity {
           NumberAnimation {
-            duration: 200
+            duration: NotificationService.windowShown ? 160 : 120
+            easing.type: Easing.OutCubic
+          }
+        }
+
+        Behavior on scale {
+          NumberAnimation {
+            duration: NotificationService.windowShown ? 200 : 150
             easing.type: Easing.OutCubic
           }
         }
 
         NotificationCenter {
           id: centerView
-          visible: notifWindow.centerSession
+          visible: NotificationService.centerSession
           anchors.top: parent.top
           anchors.left: parent.left
           anchors.right: parent.right
@@ -183,90 +132,12 @@ Scope {
 
         NotificationToast {
           id: toastView
-          visible: !notifWindow.centerSession && activeCount > 0
-          active: NotificationService.hasPopups
-          popups: NotificationService.activePopups
+          visible: !NotificationService.centerSession && NotificationService.toastGroups.length > 0
           anchors.top: parent.top
           anchors.left: parent.left
           anchors.right: parent.right
           anchors.margins: Math.round(16 * notifWindow.uiScale)
           uiScale: notifWindow.uiScale
-        }
-      }
-
-      // Vertical Concave Fillet (flares down along right screen edge below dockBody)
-      Shape {
-        anchors.right: dockBody.right
-        anchors.top: dockBody.bottom
-        anchors.topMargin: -1
-        width: notifWindow.earRadius
-        height: notifWindow.earRadius + 1
-        opacity: dockBody.opacity
-        visible: notifWindow.earRadius > 0.2
-        preferredRendererType: Shape.CurveRenderer
-
-        ShapePath {
-          strokeWidth: 0
-          fillColor: Color.background
-          startX: notifWindow.earRadius
-          startY: notifWindow.earRadius + 1
-          PathArc {
-            x: 0
-            y: 1
-            radiusX: notifWindow.earRadius
-            radiusY: notifWindow.earRadius
-            direction: PathArc.Counterclockwise
-          }
-          PathLine {
-            x: 0
-            y: 0
-          }
-          PathLine {
-            x: notifWindow.earRadius
-            y: 0
-          }
-          PathLine {
-            x: notifWindow.earRadius
-            y: notifWindow.earRadius + 1
-          }
-        }
-      }
-
-      // Horizontal Concave Fillet (scoops left along top screen edge left of dockBody)
-      Shape {
-        anchors.right: dockBody.left
-        anchors.rightMargin: -1
-        anchors.top: dockBody.top
-        width: notifWindow.earRadius + 1
-        height: notifWindow.earRadius
-        opacity: dockBody.opacity
-        visible: notifWindow.earRadius > 0.2
-        preferredRendererType: Shape.CurveRenderer
-
-        ShapePath {
-          strokeWidth: 0
-          fillColor: Color.background
-          startX: notifWindow.earRadius
-          startY: notifWindow.earRadius
-          PathArc {
-            x: 0
-            y: 0
-            radiusX: notifWindow.earRadius
-            radiusY: notifWindow.earRadius
-            direction: PathArc.Counterclockwise
-          }
-          PathLine {
-            x: notifWindow.earRadius + 1
-            y: 0
-          }
-          PathLine {
-            x: notifWindow.earRadius + 1
-            y: notifWindow.earRadius
-          }
-          PathLine {
-            x: notifWindow.earRadius
-            y: notifWindow.earRadius
-          }
         }
       }
     }

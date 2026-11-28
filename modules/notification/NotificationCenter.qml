@@ -7,8 +7,32 @@ ColumnLayout {
   id: root
 
   property real uiScale: 1.0
+  property bool clearingAll: false
+  property var dismissingIds: ({})
+  readonly property int activeDismissingCount: Object.keys(dismissingIds).length
+  readonly property bool isEmpty: NotificationService.unreadCount === 0
 
   spacing: Math.round(14 * uiScale)
+
+  Connections {
+    target: NotificationService
+    function onUnreadCountChanged(): void {
+      if (NotificationService.unreadCount === 0) {
+        root.dismissingIds = ({});
+        root.clearingAll = false;
+      }
+    }
+  }
+
+  Timer {
+    id: clearAllTimer
+    interval: 150
+    onTriggered: {
+      NotificationService.dismissAll();
+      root.dismissingIds = ({});
+      root.clearingAll = false;
+    }
+  }
 
   // Header Bar
   RowLayout {
@@ -64,7 +88,7 @@ ColumnLayout {
 
     // Expressive Clear All Pill
     Rectangle {
-      visible: NotificationService.unreadCount > 0
+      visible: !root.isEmpty && !root.clearingAll
       implicitWidth: clearRow.implicitWidth + Math.round(24 * root.uiScale)
       Layout.preferredHeight: Math.round(38 * root.uiScale)
       radius: height / 2
@@ -109,16 +133,29 @@ ColumnLayout {
         anchors.fill: parent
         hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
-        onClicked: NotificationService.dismissAll()
+        onClicked: {
+          if (!root.clearingAll) {
+            root.clearingAll = true;
+            clearAllTimer.restart();
+          }
+        }
       }
     }
   }
 
   // Empty State
   Item {
-    visible: NotificationService.unreadCount === 0
+    visible: root.isEmpty
     Layout.fillWidth: true
     Layout.preferredHeight: Math.round(180 * root.uiScale)
+    opacity: root.isEmpty ? 1.0 : 0.0
+
+    Behavior on opacity {
+      NumberAnimation {
+        duration: 160
+        easing.type: Easing.OutCubic
+      }
+    }
 
     ColumnLayout {
       anchors.centerIn: parent
@@ -162,13 +199,21 @@ ColumnLayout {
   // Grouped Notification Feed
   Flickable {
     id: groupFlickable
-    visible: NotificationService.unreadCount > 0
+    visible: !root.isEmpty
     Layout.fillWidth: true
     Layout.preferredHeight: Math.min(Math.round(560 * root.uiScale), Math.max(1, groupsColumn.implicitHeight))
     clip: true
     contentWidth: width
     contentHeight: groupsColumn.implicitHeight
     boundsBehavior: Flickable.StopAtBounds
+
+    opacity: root.clearingAll ? 0.0 : 1.0
+    Behavior on opacity {
+      NumberAnimation {
+        duration: 140
+        easing.type: Easing.OutCubic
+      }
+    }
 
     ColumnLayout {
       id: groupsColumn
@@ -182,16 +227,44 @@ ColumnLayout {
           id: groupCard
           required property var modelData
           readonly property bool collapsed: NotificationService.isAppCollapsed(modelData.appName)
+          readonly property int remainingInGroup: {
+            let count = 0;
+            const list = modelData.notifications;
+            for (let i = 0; i < list.length; i++) {
+              if (list[i] && !root.dismissingIds[list[i].id]) {
+                count++;
+              }
+            }
+            return count;
+          }
+          readonly property bool groupDismissing: modelData.notifications.length > 0 && remainingInGroup === 0
 
           Layout.fillWidth: true
-          implicitHeight: groupContent.implicitHeight
+          implicitHeight: groupDismissing ? 0 : groupContent.implicitHeight
+          opacity: groupDismissing ? 0.0 : 1.0
           radius: Math.round(22 * root.uiScale)
           color: Color.surface
           clip: true
 
+          Behavior on implicitHeight {
+            NumberAnimation {
+              duration: 180
+              easing.type: Easing.OutCubic
+            }
+          }
+
+          Behavior on opacity {
+            NumberAnimation {
+              duration: 130
+              easing.type: Easing.OutCubic
+            }
+          }
+
           ColumnLayout {
             id: groupContent
-            anchors.fill: parent
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: parent.top
             spacing: 0
 
             // App Group Header
@@ -251,7 +324,7 @@ ColumnLayout {
                   Text {
                     id: groupCountText
                     anchors.centerIn: parent
-                    text: groupCard.modelData.notifications.length
+                    text: groupCard.remainingInGroup
                     font.family: Config.textFont
                     font.pixelSize: Math.max(11, Math.round(12 * root.uiScale))
                     font.weight: Font.Bold
@@ -287,8 +360,43 @@ ColumnLayout {
                   id: notificationRow
                   required property var modelData
                   required property int index
+                  readonly property int notifId: modelData ? modelData.id : -1
+                  readonly property bool dismissing: Boolean(root.dismissingIds[notifId])
+
                   Layout.fillWidth: true
-                  implicitHeight: notificationContent.implicitHeight + Math.round(20 * root.uiScale)
+                  implicitHeight: dismissing ? 0 : (notificationContent.implicitHeight + Math.round(20 * root.uiScale))
+                  opacity: dismissing ? 0.0 : 1.0
+                  clip: true
+
+                  Behavior on implicitHeight {
+                    NumberAnimation {
+                      duration: 150
+                      easing.type: Easing.OutCubic
+                    }
+                  }
+
+                  Behavior on opacity {
+                    NumberAnimation {
+                      duration: 120
+                      easing.type: Easing.OutCubic
+                    }
+                  }
+
+                  Timer {
+                    id: rowDismissTimer
+                    property var targetNotif: null
+                    interval: 150
+                    onTriggered: {
+                      const target = targetNotif;
+                      targetNotif = null;
+                      if (target) {
+                        const next = Object.assign({}, root.dismissingIds);
+                        delete next[target.id];
+                        root.dismissingIds = next;
+                        NotificationService.dismissNotification(target);
+                      }
+                    }
+                  }
 
                   Rectangle {
                     anchors.top: parent.top
@@ -353,7 +461,20 @@ ColumnLayout {
                           anchors.fill: parent
                           hoverEnabled: true
                           cursorShape: Qt.PointingHandCursor
-                          onClicked: NotificationService.dismissNotification(notificationRow.modelData)
+                          onClicked: {
+                            if (notificationRow.dismissing || root.clearingAll || notificationRow.notifId < 0)
+                              return;
+                            if (NotificationService.unreadCount - root.activeDismissingCount <= 1) {
+                              root.clearingAll = true;
+                              clearAllTimer.restart();
+                            } else {
+                              const next = Object.assign({}, root.dismissingIds);
+                              next[notificationRow.notifId] = true;
+                              root.dismissingIds = next;
+                              rowDismissTimer.targetNotif = notificationRow.modelData;
+                              rowDismissTimer.restart();
+                            }
+                          }
                         }
                       }
                     }

@@ -27,9 +27,6 @@ input {
     tap
     natural-scroll
   }
-  mouse {
-    natural-scroll
-  }
 }
 
 layer-rule {

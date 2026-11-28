@@ -7,7 +7,9 @@ ListView {
   property real uiScale: 1.0
   property real rowHeight: 64
   property real frictionDecay: 3.5
-  property real wheelMultiplier: 12
+  property real wheelMultiplier: 10
+  property real touchpadMultiplier: 3
+  property real touchpadFlingMultiplier: 42
   property real maxVelocity: 5500
   property real maxEdgeStretch: 14
   property bool showScrollBar: true
@@ -31,13 +33,25 @@ ListView {
     contentY = 0;
   }
 
-  // Clamp cleanly if the model shrinks while scrolled down
-  onMaxScrollYChanged: {
+  function clampScroll(): void {
     if (contentY > maxScrollY) {
       contentY = maxScrollY;
       scrollVelocity = 0;
     }
   }
+
+  function triggerEdgeBounce(scrollingUp: bool, step: real): void {
+    root.scrollVelocity = 0;
+    const limit = Math.round(root.maxEdgeStretch * root.uiScale);
+    const direction = scrollingUp ? 1 : -1;
+    const nextStretch = Math.max(-limit, Math.min(limit, root.edgeStretch + direction * step));
+
+    edgeBounceAnim.stop();
+    stretchOutAnim.to = nextStretch;
+    edgeBounceAnim.start();
+  }
+
+  onMaxScrollYChanged: clampScroll()
 
   transform: Translate {
     y: root.edgeStretch
@@ -46,6 +60,7 @@ ListView {
   SequentialAnimation {
     id: edgeBounceAnim
     PropertyAnimation {
+      id: stretchOutAnim
       target: root
       property: "edgeStretch"
       duration: 85
@@ -84,12 +99,11 @@ ListView {
     }
   }
 
-  MouseArea {
-    anchors.fill: parent
-    acceptedButtons: Qt.NoButton
+  WheelHandler {
+    acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
     onWheel: wheel => {
-      const rawDelta = wheel.pixelDelta.y !== 0 ? wheel.pixelDelta.y * 2.5 : wheel.angleDelta.y;
-
+      const isTouchpad = wheel.pixelDelta.y !== 0;
+      const rawDelta = isTouchpad ? wheel.pixelDelta.y : wheel.angleDelta.y;
       if (rawDelta === 0)
         return;
 
@@ -98,22 +112,21 @@ ListView {
       const atBottomEdge = !scrollingUp && root.contentY >= (root.maxScrollY - 0.5);
 
       if (atTopEdge || atBottomEdge) {
-        root.scrollVelocity = 0;
-        const limit = Math.round(root.maxEdgeStretch * root.uiScale);
-        const direction = scrollingUp ? 1 : -1;
-        const nextStretch = Math.max(-limit, Math.min(limit, root.edgeStretch + direction * 6));
-
-        edgeBounceAnim.stop();
-        edgeBounceAnim.animations[0].to = nextStretch;
-        edgeBounceAnim.start();
+        triggerEdgeBounce(scrollingUp, isTouchpad ? 3 : 6);
         wheel.accepted = true;
         return;
       }
 
-      const impulse = -rawDelta * root.wheelMultiplier;
-      const sameDirection = (impulse > 0 && root.scrollVelocity > 0) || (impulse < 0 && root.scrollVelocity < 0);
-
-      root.scrollVelocity = sameDirection ? Math.max(-root.maxVelocity, Math.min(root.maxVelocity, root.scrollVelocity * 0.65 + impulse)) : impulse;
+      if (isTouchpad) {
+        const deltaY = -rawDelta * root.touchpadMultiplier;
+        root.contentY = Math.max(0, Math.min(root.maxScrollY, root.contentY + deltaY));
+        const flingVel = deltaY * root.touchpadFlingMultiplier;
+        root.scrollVelocity = Math.max(-root.maxVelocity, Math.min(root.maxVelocity, flingVel));
+      } else {
+        const impulse = -rawDelta * root.wheelMultiplier;
+        const sameDirection = (impulse > 0 && root.scrollVelocity > 0) || (impulse < 0 && root.scrollVelocity < 0);
+        root.scrollVelocity = sameDirection ? Math.max(-root.maxVelocity, Math.min(root.maxVelocity, root.scrollVelocity * 0.65 + impulse)) : impulse;
+      }
 
       wheel.accepted = true;
     }
